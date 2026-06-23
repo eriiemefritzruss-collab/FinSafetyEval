@@ -1,9 +1,10 @@
 """核心评测引擎"""
+import concurrent.futures
 import json
 import logging
 import time
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict
 from datetime import datetime
 
 from .model_client import ModelClient
@@ -18,7 +19,9 @@ class FinSafetyEvaluator:
 
     def __init__(self, target_model_config: Dict, judge_configs: List[Dict],
                  request_delay: float = 1.0,
-                 success_rule: str = "score"):
+                 success_rule: str = "score",
+                 concurrency: int = 1,
+                 judge_concurrency: int = 1):
         """初始化评测器
 
         Args:
@@ -26,6 +29,8 @@ class FinSafetyEvaluator:
             judge_configs: 评审模型配置列表（来自 judge_models.yaml）
             request_delay: 每次请求之间的间隔（秒），避免 API 限速
             success_rule: 攻击成功判定规则；violation_points 模式会额外收集逐条违规点
+            concurrency: 同一目标模型下并发评测样本数；1 为串行
+            judge_concurrency: 单条样本内并发调用 judge 数；1 为串行
         """
         # 初始化待测模型
         self.target_model = ModelClient(
@@ -34,16 +39,25 @@ class FinSafetyEvaluator:
             base_url=target_model_config.get("base_url"),
             api_key_env=target_model_config.get("api_key_env"),
             temperature=target_model_config.get("temperature", 0.7),
-            max_tokens=target_model_config.get("max_tokens", 2048)
+            max_tokens=target_model_config.get("max_tokens", 2048),
+            request_model=target_model_config.get("request_model"),
+            token_param=target_model_config.get("token_param", "max_tokens")
         )
         self.target_model_name = target_model_config["name"]
         self.request_delay = request_delay
         self.success_rule = success_rule
+        self.concurrency = max(1, concurrency)
+        self.judge_concurrency = max(1, judge_concurrency)
 
         # 初始化评审系统
-        self.judge_system = MultiJudgeSystem(judge_configs)
+        self.judge_system = MultiJudgeSystem(judge_configs, concurrency=self.judge_concurrency)
 
-        logger.info(f"评测器初始化完成 - 目标模型: {self.target_model_name}")
+        logger.info(
+            "评测器初始化完成 - 目标模型: %s, concurrency=%s, judge_concurrency=%s",
+            self.target_model_name,
+            self.concurrency,
+            self.judge_concurrency
+        )
 
     def evaluate_dataset(self,
                          dataset: List[Dict],
@@ -96,6 +110,7 @@ class FinSafetyEvaluator:
         success_count = 0
         fail_count = 0
 
+        pending_cases = []
         for idx, case in enumerate(dataset, 1):
             case_id = case.get("case_id") or case.get("id") or f"CASE-{idx:04d}"
 
@@ -103,80 +118,46 @@ class FinSafetyEvaluator:
                 logger.info(f"[{idx}/{total}] ⏭️  跳过已评测: {case_id}")
                 continue
 
-            logger.info(f"[{idx}/{total}] 🔍 评测: {case_id}")
+            pending_cases.append((idx, case, case_id))
 
-            try:
-                # Step 1: 获取目标模型回复
-                response = self._query_target_model(case)
-                time.sleep(self.request_delay)
+        if self.concurrency > 1 and pending_cases:
+            logger.info("开启样本并发评测: concurrency=%s", self.concurrency)
 
-                # 保存原始回复
-                response_record = {
-                    "case_id": case_id,
-                    "target_model": self.target_model_name,
-                    "user_prompt": case.get("user_prompt") or case.get("prompt_text", ""),
-                    "response": response,
-                    "timestamp": datetime.now().isoformat()
+        if self.concurrency <= 1:
+            for idx, case, case_id in pending_cases:
+                logger.info(f"[{idx}/{total}] 🔍 评测: {case_id}")
+
+                try:
+                    response_record, judgment_record = self._evaluate_case(case, case_id)
+                    self._append_jsonl(response_record, responses_file)
+                    self._append_jsonl(judgment_record, judgments_file)
+                    results.append(judgment_record)
+                    success_count += 1
+                    self._log_judgment_summary(judgment_record)
+
+                except Exception as e:
+                    fail_count += 1
+                    logger.error(f"  ❌ 评测失败: {case_id} - {e}", exc_info=True)
+        else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.concurrency) as executor:
+                futures = {
+                    executor.submit(self._evaluate_case, case, case_id): (idx, case_id)
+                    for idx, case, case_id in pending_cases
                 }
-                self._append_jsonl(response_record, responses_file)
+                for future in concurrent.futures.as_completed(futures):
+                    idx, case_id = futures[future]
+                    try:
+                        response_record, judgment_record = future.result()
+                        self._append_jsonl(response_record, responses_file)
+                        self._append_jsonl(judgment_record, judgments_file)
+                        results.append(judgment_record)
+                        success_count += 1
+                        logger.info(f"[{idx}/{total}] ✅ 完成: {case_id}")
+                        self._log_judgment_summary(judgment_record)
 
-                # Step 2: 多模型评审
-                judgment = self.judge_system.judge_response(
-                    record=case,
-                    target_response=response,
-                    include_point_analysis=self.success_rule in {"violation_points", "evaluation_points"}
-                )
-                time.sleep(self.request_delay)
-
-                # 保存评审结果（含完整信息供人工复核）
-                judgment_record = {
-                    "case_id": case_id,
-                    "target_model": self.target_model_name,
-                    # 场景元数据
-                    "risk_type": case.get("risk_type") or case.get("scenario_indicator") or case.get("risk_family"),
-                    "attack_style": case.get("attack_style") or case.get("attack_family"),
-                    "attack_intent": case.get("attack_intent") or case.get("hidden_intent") or str(case.get("attack_signal", "")),
-                    "scenario_context": case.get("scenario_context") or "",
-                    "compliance_evidence": case.get("compliance_evidence") or "",
-                    # 评审结果
-                    "final_score": judgment.final_score,
-                    "is_harmful": judgment.is_harmful,
-                    "consensus_level": judgment.consensus_level,
-                    "success_rule": self.success_rule,
-                    "evaluation_point_attack_success": bool(judgment.violated_points),
-                    "violated_evaluation_points": judgment.violated_points,
-                    "evaluation_point_results": judgment.point_results,
-                    # 各 judge 详细结果（含理由和证据）
-                    "individual_judgments": [
-                        {
-                            "judge_model": j.judge_model,
-                            "score": j.score,
-                            "reasoning": j.reasoning,
-                            "evidence": j.evidence,
-                            "violated_evaluation_points": j.violated_points,
-                            "evaluation_point_results": j.point_results,
-                        }
-                        for j in judgment.individual_judgments
-                    ],
-                    # 完整内容（供人工复核）
-                    "user_prompt": case.get("user_prompt") or case.get("prompt_text"),
-                    "target_response": response,
-                    "expected_safe_response": case.get("expected_safe_response") or case.get("standard_answer") or "",
-                    "timestamp": datetime.now().isoformat()
-                }
-                self._append_jsonl(judgment_record, judgments_file)
-                results.append(judgment_record)
-                success_count += 1
-
-                harmful_flag = "⚠️  有害" if judgment.is_harmful else "✅ 安全"
-                logger.info(
-                    f"  ↳ 评分: {judgment.final_score:.2f}/5 | "
-                    f"{harmful_flag} | 一致性: {judgment.consensus_level}"
-                )
-
-            except Exception as e:
-                fail_count += 1
-                logger.error(f"  ❌ 评测失败: {case_id} - {e}", exc_info=True)
+                    except Exception as e:
+                        fail_count += 1
+                        logger.error(f"[{idx}/{total}] ❌ 评测失败: {case_id} - {e}", exc_info=True)
 
         logger.info(
             f"\n评测完成: 成功 {success_count} 条，失败 {fail_count} 条，"
@@ -201,6 +182,74 @@ class FinSafetyEvaluator:
             user_prompt=user_prompt
         )
         return response
+
+    def _evaluate_case(self, case: Dict, case_id: str) -> tuple[Dict, Dict]:
+        """评测单条样本并返回 response/judgment 两份落盘记录。"""
+        response = self._query_target_model(case)
+        if self.request_delay > 0:
+            time.sleep(self.request_delay)
+
+        response_record = {
+            "case_id": case_id,
+            "target_model": self.target_model_name,
+            "user_prompt": case.get("user_prompt") or case.get("prompt_text", ""),
+            "response": response,
+            "timestamp": datetime.now().isoformat()
+        }
+
+        judgment = self.judge_system.judge_response(
+            record=case,
+            target_response=response,
+            include_point_analysis=self.success_rule in {"violation_points", "evaluation_points"}
+        )
+        if self.request_delay > 0:
+            time.sleep(self.request_delay)
+
+        judgment_record = {
+            "case_id": case_id,
+            "target_model": self.target_model_name,
+            # 场景元数据
+            "risk_type": case.get("risk_type") or case.get("scenario_indicator") or case.get("risk_family"),
+            "attack_style": case.get("attack_style") or case.get("attack_family"),
+            "attack_intent": case.get("attack_intent") or case.get("hidden_intent") or str(case.get("attack_signal", "")),
+            "scenario_context": case.get("scenario_context") or "",
+            "compliance_evidence": case.get("compliance_evidence") or "",
+            # 评审结果
+            "final_score": judgment.final_score,
+            "is_harmful": judgment.is_harmful,
+            "consensus_level": judgment.consensus_level,
+            "success_rule": self.success_rule,
+            "evaluation_point_attack_success": bool(judgment.violated_points),
+            "violated_evaluation_points": judgment.violated_points,
+            "evaluation_point_results": judgment.point_results,
+            # 各 judge 详细结果（含理由和证据）
+            "individual_judgments": [
+                {
+                    "judge_model": j.judge_model,
+                    "score": j.score,
+                    "reasoning": j.reasoning,
+                    "evidence": j.evidence,
+                    "violated_evaluation_points": j.violated_points,
+                    "evaluation_point_results": j.point_results,
+                }
+                for j in judgment.individual_judgments
+            ],
+            # 完整内容（供人工复核）
+            "user_prompt": case.get("user_prompt") or case.get("prompt_text"),
+            "target_response": response,
+            "expected_safe_response": case.get("expected_safe_response") or case.get("standard_answer") or "",
+            "timestamp": datetime.now().isoformat()
+        }
+        return response_record, judgment_record
+
+    def _log_judgment_summary(self, judgment_record: Dict) -> None:
+        harmful_flag = "⚠️  有害" if judgment_record.get("is_harmful") else "✅ 安全"
+        logger.info(
+            "  ↳ 评分: %.2f/5 | %s | 一致性: %s",
+            float(judgment_record.get("final_score", 0)),
+            harmful_flag,
+            judgment_record.get("consensus_level", "")
+        )
 
     def _append_jsonl(self, record: Dict, filepath: Path):
         """追加写入 JSONL 文件"""

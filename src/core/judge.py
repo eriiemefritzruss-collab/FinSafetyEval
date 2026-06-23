@@ -1,4 +1,5 @@
 """多模型评审系统"""
+import concurrent.futures
 import json
 import re
 import logging
@@ -37,12 +38,14 @@ class AggregatedJudgment:
 class MultiJudgeSystem:
     """多模型评审系统"""
 
-    def __init__(self, judge_configs: List[Dict]):
+    def __init__(self, judge_configs: List[Dict], concurrency: int = 1):
         """初始化多个评审模型
 
         Args:
             judge_configs: 评审模型配置列表，每项包含 name, provider, weight 等
+            concurrency: 单条样本内并发调用 judge 的数量；1 为串行
         """
+        self.concurrency = max(1, concurrency)
         self.judges = []
         for config in judge_configs:
             client = ModelClient(
@@ -51,7 +54,9 @@ class MultiJudgeSystem:
                 base_url=config.get("base_url"),
                 api_key_env=config.get("api_key_env"),
                 temperature=config.get("temperature", 0.1),
-                max_tokens=config.get("max_tokens", 2048)
+                max_tokens=config.get("max_tokens", 2048),
+                request_model=config.get("request_model"),
+                token_param=config.get("token_param", "max_tokens")
             )
             self.judges.append({
                 "client": client,
@@ -83,31 +88,65 @@ class MultiJudgeSystem:
             include_point_analysis=include_point_analysis
         )
 
-        individual_judgments = []
-
-        for judge in self.judges:
-            try:
-                raw_response = judge["client"].simple_query(
+        if self.concurrency <= 1 or len(self.judges) <= 1:
+            individual_judgments = []
+            for judge in self.judges:
+                judgment = self._judge_with_one(
+                    judge=judge,
                     system_prompt=system_prompt,
-                    user_prompt=user_prompt
+                    user_prompt=user_prompt,
+                    include_point_analysis=include_point_analysis
                 )
-
-                judgment = self._parse_judgment(raw_response, judge["name"])
-                individual_judgments.append(judgment)
-
-                point_msg = (
-                    f" | 违规点: {judgment.violated_points}"
-                    if include_point_analysis else ""
-                )
-                logger.info(f"  [{judge['name']}] 评分: {judgment.score}/5{point_msg}")
-
-            except Exception as e:
-                logger.error(f"  [{judge['name']}] 评审失败: {e}", exc_info=True)
+                if judgment:
+                    individual_judgments.append(judgment)
+        else:
+            individual_judgments = []
+            max_workers = min(self.concurrency, len(self.judges))
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {
+                    executor.submit(
+                        self._judge_with_one,
+                        judge,
+                        system_prompt,
+                        user_prompt,
+                        include_point_analysis,
+                    ): judge
+                    for judge in self.judges
+                }
+                for future in concurrent.futures.as_completed(futures):
+                    judgment = future.result()
+                    if judgment:
+                        individual_judgments.append(judgment)
 
         if not individual_judgments:
             raise RuntimeError("所有 judge 模型均评审失败，无法聚合结果")
 
         return self._aggregate_judgments(individual_judgments)
+
+    def _judge_with_one(self,
+                        judge: Dict,
+                        system_prompt: str,
+                        user_prompt: str,
+                        include_point_analysis: bool) -> Optional[JudgmentResult]:
+        """调用单个 judge 并解析结果；失败时返回 None，让其他 judge 继续。"""
+        try:
+            raw_response = judge["client"].simple_query(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt
+            )
+
+            judgment = self._parse_judgment(raw_response, judge["name"])
+
+            point_msg = (
+                f" | 违规点: {judgment.violated_points}"
+                if include_point_analysis else ""
+            )
+            logger.info(f"  [{judge['name']}] 评分: {judgment.score}/5{point_msg}")
+            return judgment
+
+        except Exception as e:
+            logger.error(f"  [{judge['name']}] 评审失败: {e}", exc_info=True)
+            return None
 
     def _parse_judgment(self, raw_response: str, judge_model: str) -> JudgmentResult:
         """解析评审模型的结构化输出。

@@ -5,8 +5,10 @@
 ## 📋 功能特性
 
 - ✅ **批量数据合成与自动校验**：以 `data_generation/` 目录中的真实案例驱动生成链路为准，支持知识库抽取、业务场景生成、红队攻击改写与结构化样本落盘。
+- ✅ **4000 条真实处罚案例知识库**：`penalty_cases.json` 已扩展为多监管来源真实案例，不使用 LLM 合成案例，并保留来源 URL、来源站点、原始记录哈希等溯源字段。
 - ✅ **标准答案二次修正**：[新增] 支持对 `standard_answer / expected_safe_response` 进行二次大模型校准，统一生成更稳定的评测基准答案、评价点与不安全判定标准。
 - ✅ **多模型评审系统**：使用多个judge模型进行交叉评审，提高评分可靠性
+- ✅ **并发评测与网关兼容**：主评测脚本支持样本级并发与 judge 并发，统一模型客户端支持 OpenAI 兼容网关的 `request_model` 和 `max_completion_tokens` 参数。
 - ✅ **1-5分量表评分**：细粒度评分体系，清晰区分安全程度
 - ✅ **详细评分理由**：每个judge模型提供详细的打分依据和关键证据
 - ✅ **ASR统计分析**：按风险类型、攻击风格等维度统计攻击成功率
@@ -27,12 +29,17 @@ FinSafetyEval/
 │   ├── knowledge_base/
 │   │   └── penalty_cases.json            # 处罚案例知识库
 │   ├── crawler/
-│   │   ├── csrc_crawler.py               # 公开案例抓取
+│   │   ├── data/                         # 已抓取的官方原始记录缓存
+│   │   ├── build_real_penalty_cases.py   # 多来源真实案例统一构建
+│   │   ├── occ_crawler.py                # OCC Enforcement Actions 官方导出抓取
+│   │   ├── sec_litigation_crawler.py     # SEC Litigation Releases 官方页面抓取
+│   │   ├── csrc_crawler.py               # 公开案例抓取早期示例
 │   │   ├── kb_builder.py                 # 长文本结构化抽取
 │   │   └── expand_kb_via_llm.py          # 案例受控扩充
 │   ├── context_generator.py              # Context Generation
 │   ├── red_teaming.py                    # 红队攻击改写与初始标准答案生成
 │   ├── run_v2.py                         # 真实案例驱动的数据合成主入口
+│   ├── run_v3_delivery.py                # delivery 字段格式生成入口，支持并发和本地模板模式
 │   ├── seed_data.py                      # 人工种子数据
 │   └── output/                           # 合成数据与中间输出
 ├── data/
@@ -55,6 +62,10 @@ FinSafetyEval/
 │   │   └── loader.py                     # prompt 文件加载器
 │   └── utils/
 ├── run_evaluation.py                     # 主评测脚本
+├── run_gpt54_generation.py               # 通过本地 gpt-5.4 兼容网关运行 V3 生成
+├── merge_all_synthetic_data.py           # 合并正式合成 JSONL 数据集
+├── export_common_model_delivery_excel.py # 多模型共同样本交付 Excel 导出
+├── export_618_deepseek_delivery_excel.py # DeepSeek 单模型交付导出封装
 ├── generate_safe_replies.py              # 生成安全回复参考（旧流程）
 ├── revise_standard_answers.py            # 标准答案二次修正主脚本 [新增]
 └── requirements.txt
@@ -126,7 +137,9 @@ python run_evaluation.py \
   --target deepseek/deepseek-r1 \
   --input data/input/金融安全风险_攻击评测数据_500_v3_delivery.jsonl \
   --success_rule violation_points \
-  --export_delivery_excel
+  --export_delivery_excel \
+  --concurrency 2 \
+  --judge_concurrency 2
 ```
 
 交付 Excel 默认保存到 `data/output/delivery/`，字段包含 `violation_points`，并追加模型列（如 `deepseek-r1`）。模型列中 `1` 表示攻击成功，`0` 表示未成功，空白表示该 `case_id` 未匹配到评测结果。
@@ -259,12 +272,45 @@ python convert_results_to_excel.py \
 
 实际主链路为：
 
-1. `crawler/csrc_crawler.py`：抓取公开处罚案例网页；
-2. `crawler/kb_builder.py`：将长文本处罚材料抽取为结构化知识库字段；
-3. `crawler/expand_kb_via_llm.py` + `seed_data.py`：在真实案例结构上做受控扩充；
-4. `context_generator.py`：把法条与处罚事实展开为逼真的业务场景；
-5. `red_teaming.py`：构造攻击问题，同时生成初始 `standard_answer` 与 `violation_points`；
-6. `run_v2.py`：串联上述步骤，生成最终 JSONL 评测样本。
+1. `crawler/build_real_penalty_cases.py`：从已抓取的公开监管原始记录构建可追溯处罚案例知识库；
+2. `crawler/occ_crawler.py`：下载 OCC Enforcement Actions Search 官方 JSON 导出；
+3. `crawler/sec_litigation_crawler.py`：抓取 SEC Litigation Releases 官方列表与详情正文；
+4. `crawler/csrc_crawler.py`：抓取公开处罚案例网页的早期示例框架；
+5. `crawler/kb_builder.py`：将长文本处罚材料抽取为结构化知识库字段；
+6. `crawler/expand_kb_via_llm.py` 已禁用默认写库能力，仅作历史脚本保留，不用于真实案例库扩充；
+7. `context_generator.py`：把法条与处罚事实展开为逼真的业务场景；
+8. `red_teaming.py`：构造攻击问题，同时生成初始 `standard_answer` 与 `violation_points`；
+9. `run_v2.py` / `run_v3_delivery.py`：串联真实案例、长背景和攻击包装，生成最终 JSONL 评测样本。
+
+重建 4000 条多来源真实处罚案例知识库：
+
+```bash
+python3 data_generation/crawler/occ_crawler.py \
+  --output data_generation/crawler/data/occ_enforcement_actions.json
+
+python3 data_generation/crawler/sec_litigation_crawler.py \
+  --output data_generation/crawler/data/sec_litigation_releases.json \
+  --max-records 1000 \
+  --max-pages 10 \
+  --detail-limit 1000
+
+python3 data_generation/crawler/build_real_penalty_cases.py \
+  --output data_generation/knowledge_base/penalty_cases.json \
+  --limit 4000 \
+  --selection balanced
+```
+
+如果已有 2000 条案例库，并希望只追加 2000 条与现有 `case_id/source_url/raw_record_sha256` 不重复的新案例：
+
+```bash
+python3 data_generation/crawler/build_real_penalty_cases.py \
+  --output data_generation/knowledge_base/penalty_cases.json \
+  --append-existing data_generation/knowledge_base/penalty_cases.json \
+  --append-count 2000 \
+  --selection balanced
+```
+
+默认会合并已抓取的公开监管来源：国家金融监督管理总局/原银保监、FINRA、CFTC、CFPB、NFA、NY DFS、OCC、SEC，并保留 `source_url`、`source_site`、`source_dataset`、`raw_record_sha256` 等溯源字段。案例库禁止使用 LLM 合成案例，`expand_kb_via_llm.py` 默认不会写入知识库。
 
 ### 一键生成真实案例驱动样本
 
@@ -276,6 +322,37 @@ python3 data_generation/run_v2.py \
   --model qwen-max \
   --kb-path data_generation/knowledge_base/penalty_cases.json \
   --output data_generation/output/v2_generation.jsonl
+```
+
+生成交付字段格式的 V3 delivery 数据：
+
+```bash
+python3 data_generation/run_v3_delivery.py \
+  --provider aliyun \
+  --model qwen-max \
+  --kb-path data_generation/knowledge_base/penalty_cases.json \
+  --output data_generation/output/v3_delivery.jsonl \
+  --target-count 500 \
+  --concurrency 2
+```
+
+如需通过本地 gpt-5.4 兼容网关运行，可使用封装脚本：
+
+```bash
+python3 run_gpt54_generation.py \
+  --target-count 500 \
+  --output data_generation/output/v3_gpt54_delivery.jsonl \
+  --concurrency 2
+```
+
+无外部模型调用的本地模板烟测：
+
+```bash
+python3 data_generation/run_v3_delivery.py \
+  --kb-path data_generation/knowledge_base/penalty_cases.json \
+  --output /tmp/finsafety_v3_smoke.jsonl \
+  --target-count 5 \
+  --offline-template
 ```
 
 ### 生成后执行标准答案二次修正 [推荐]
@@ -327,6 +404,29 @@ python run_evaluation.py \
   --target qwen-plus \
   --input data_generation/output/v2_generation_revised.jsonl \
   --output data/output
+```
+
+### 数据集合并与交付导出
+
+合并正式合成数据集并生成来源统计：
+
+```bash
+python3 merge_all_synthetic_data.py --write-7000
+```
+
+导出多个模型均已评测的共同样本到交付 Excel：
+
+```bash
+python3 export_common_model_delivery_excel.py \
+  --input data/input/金融安全风险_攻击评测数据_all_synthetic_merged_7000.jsonl \
+  --output data/input/20250617_金融合规数据交付.xlsx \
+  --model deepseek-r1 data/output/judgments/deepseek-r1_judgments.jsonl data/output/responses/deepseek-r1_responses.jsonl gpt-5.4
+```
+
+DeepSeek 单模型交付导出可使用：
+
+```bash
+python3 export_618_deepseek_delivery_excel.py
 ```
 
 ## 🎯 与TRIDENT的区别

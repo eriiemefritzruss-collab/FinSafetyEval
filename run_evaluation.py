@@ -48,7 +48,10 @@ def load_dataset(data_path: str) -> list:
         for line in f:
             line = line.strip()
             if line:
-                record = json.loads(line)
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
                 if "violation_points" not in record and "evaluation_points" in record:
                     record["violation_points"] = record["evaluation_points"]
                 dataset.append(record)
@@ -119,6 +122,10 @@ def main():
     parser.add_argument("--log_file", default="logs/evaluation.log",
                         help="日志文件路径")
 
+    parser.add_argument("--concurrency", type=int, default=1,
+                        help="Concurrent cases per target model; 1 keeps serial behavior")
+    parser.add_argument("--judge_concurrency", type=int, default=1,
+                        help="Concurrent judge calls per case when multiple judges are configured")
     args = parser.parse_args()
 
     setup_logging(args.log_file)
@@ -202,7 +209,9 @@ def main():
             target_model_config=target_config,
             judge_configs=judge_configs,
             request_delay=args.request_delay,
-            success_rule=args.success_rule
+            success_rule=args.success_rule,
+            concurrency=args.concurrency,
+            judge_concurrency=args.judge_concurrency
         )
 
         # 运行评测

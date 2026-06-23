@@ -6,6 +6,14 @@ import re
 from pathlib import Path
 from playwright.async_api import async_playwright
 
+"""
+Legacy CSRC crawling prototype.
+
+Use build_real_penalty_cases.py for the production penalty_cases.json rebuild.
+This file is kept as a Playwright connectivity example and should not be used
+as a fallback to fabricate or seed penalty cases.
+"""
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -21,8 +29,9 @@ class CSRCCrawler:
         """
         这里提供一个基于 Playwright 的抓取框架。
         注意：实际运行中，由于各种官网的反爬，可能需要调整 selector。
-        为了确保示例能够工作并有数据，这里我们采用直接硬编码几个公开链接作为抓取目标，
-        以此展示完整的抓取->结构化流程。
+        这里使用固定的公开链接作为连通性测试目标，以此展示抓取->结构化流程。
+        生产知识库不要依赖该示例列表，应该使用 build_real_penalty_cases.py 从真实原始
+        监管记录重建。
         """
         target_urls = [
             # 1. 中国证监会官网（总会）行政处罚决定书示例
@@ -51,8 +60,7 @@ class CSRCCrawler:
             )
             page = await context.new_page()
             
-            # 由于外网环境及封禁风险，这里先以示例为主展示爬取能力。
-            # 我们将用一个假装的但合规的列表
+            # 由于外网环境及封禁风险，这里只展示爬取能力，不提供合成兜底数据。
             logger.info("开始获取公开的行政处罚文书页面...")
             
             # 为了确保有数据，如果网络打不开这些页面，我们在 kb_builder 里准备了容灾方案。

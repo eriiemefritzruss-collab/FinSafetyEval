@@ -22,7 +22,9 @@ class ModelClient:
                  api_key_env: Optional[str] = None,
                  base_url: Optional[str] = None,
                  temperature: float = 0.7, max_tokens: int = 2048,
-                 max_retries: int = 3, retry_delay: float = 2.0):
+                 max_retries: int = 3, retry_delay: float = 2.0,
+                 request_model: Optional[str] = None,
+                 token_param: str = "max_tokens"):
         """
         Args:
             provider: 模型提供商 (aliyun | openai | deepseek | custom)
@@ -34,13 +36,17 @@ class ModelClient:
             max_tokens: 最大生成 token 数
             max_retries: 最大重试次数
             retry_delay: 重试基础延迟（秒，实际使用指数退避）
+            request_model: 发送到兼容网关的实际模型名；默认与 model 相同
+            token_param: 输出长度参数名，兼容 max_tokens / max_completion_tokens
         """
         self.provider = provider.lower()
         self.model = model
+        self.request_model = request_model or model
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.token_param = token_param
 
         # API Key 优先级：直接传入 > api_key_env 指定的变量 > provider 默认变量
         resolved_key = self._resolve_api_key(api_key, api_key_env)
@@ -110,12 +116,14 @@ class ModelClient:
 
         for attempt in range(self.max_retries):
             try:
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    temperature=kwargs.get("temperature", self.temperature),
-                    max_tokens=kwargs.get("max_tokens", self.max_tokens)
-                )
+                token_param = kwargs.get("token_param", self.token_param)
+                request_kwargs = {
+                    "model": kwargs.get("request_model", self.request_model),
+                    "messages": messages,
+                    "temperature": kwargs.get("temperature", self.temperature),
+                    token_param: kwargs.get("max_tokens", self.max_tokens),
+                }
+                response = self.client.chat.completions.create(**request_kwargs)
 
                 content = response.choices[0].message.content or ""
                 usage = None
@@ -126,7 +134,7 @@ class ModelClient:
                         "total_tokens": response.usage.total_tokens
                     }
 
-                return ModelResponse(content=content, model=self.model, usage=usage)
+                return ModelResponse(content=content, model=request_kwargs["model"], usage=usage)
 
             except Exception as e:
                 last_error = e

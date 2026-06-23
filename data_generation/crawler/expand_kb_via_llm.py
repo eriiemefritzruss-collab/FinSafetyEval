@@ -1,6 +1,7 @@
 import sys
 import json
 import logging
+import os
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -10,6 +11,12 @@ from core.model_client import ModelClient
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+DISABLED_MESSAGE = (
+    "expand_kb_via_llm.py generates LLM-derived cases and is disabled for "
+    "the real penalty case knowledge base. Use build_real_penalty_cases.py "
+    "to rebuild penalty_cases.json from crawled public-source records."
+)
 
 def load_existing_cases(kb_path: Path):
     if kb_path.exists():
@@ -62,6 +69,9 @@ def generate_cases(client: ModelClient, num_batches: int = 6):
     return all_new_cases
 
 def main():
+    if os.getenv("ALLOW_SYNTHETIC_PENALTY_CASES") != "1":
+        raise SystemExit(DISABLED_MESSAGE)
+
     kb_path = Path(__file__).resolve().parents[1] / "knowledge_base" / "penalty_cases.json"
     existing_cases = load_existing_cases(kb_path)
     
@@ -87,6 +97,8 @@ def main():
     logger.info(f"扩充完成，当前知识库共有 {len(final_cases)} 个案例。")
 
 if __name__ == "__main__":
+    if os.getenv("ALLOW_SYNTHETIC_PENALTY_CASES") != "1":
+        raise SystemExit(DISABLED_MESSAGE)
     from dotenv import load_dotenv
     load_dotenv(Path(__file__).resolve().parents[2] / ".env")
     main()
