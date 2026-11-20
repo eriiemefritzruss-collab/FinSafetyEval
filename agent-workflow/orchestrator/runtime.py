@@ -237,7 +237,6 @@ class Runtime:
             binding = dict(task["binding"], head_sha=pr["head"]["sha"], base_sha=pr["base"]["sha"])
             if binding == task["binding"]:
                 continue
-            self.git("fetch", "origin", "--prune", network=True)
             issue = self.meta["task_issues"][task["task_id"]]
             event = self._event(issue, "HEAD_CHANGED", task,
                                 {"implementation_pr": number, "reason": "Authenticated GitHub observation supersedes previous candidate"},
@@ -245,6 +244,10 @@ class Runtime:
             outbox.setdefault(event["event_id"], {"issue": issue, "event": event, "published": False, "observed_at": now()})
             self.save()
             self.core.ingest(event)
+            # The authenticated remote observation already invalidates PASS.
+            # Fetch only prepares local objects; its failure must not preserve
+            # a conclusion known to belong to another remote candidate.
+            self.git("fetch", "origin", "--prune", network=True)
         for record in outbox.values():
             if record["published"]:
                 continue

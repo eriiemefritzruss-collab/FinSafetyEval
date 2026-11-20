@@ -383,6 +383,38 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(self.rt.meta["rejections"], before)
         self.assertEqual(self.rt.core.state(self.task)["state"], "PLANNING")
 
+    def test_observed_remote_change_invalidates_ready_even_when_fetch_fails(self):
+        job, info = self.prepare_review()
+        self.rt._finish_review(job, info, self.passed())
+        self.rt.sync()
+        self.assertEqual(self.rt.core.state(self.task)["state"], "READY_FOR_HUMAN_MERGE")
+        self.git("commit", "--allow-empty", "-m", "remote changed before fetch failure")
+        new_head = self.git("rev-parse", "HEAD")
+        self.service.pr["head"]["sha"] = new_head
+        self.service.pr["base"]["sha"] = self.policy
+        self.service.get_pr = Mock(wraps=self.service.get_pr)
+        original_git = self.rt.git
+        fetch_calls = []
+        def fail_fetch(*args, **kwargs):
+            if args[0] == "fetch":
+                fetch_calls.append(args)
+                raise runtime.RuntimeErrorSafe("Isolated fetch failure after authenticated GET")
+            return original_git(*args, **kwargs)
+        self.rt.git = fail_fetch
+        result = self.rt.once()
+        self.assertIsNotNone(result["error"])
+        self.service.get_pr.assert_called_once_with(9)
+        self.assertEqual(len(fetch_calls), 1)
+        current = self.rt.core.state(self.task)
+        self.assertEqual(current["state"], "REVIEWING")
+        self.assertIsNone(current["last_review"])
+        self.assertEqual(current["binding"]["head_sha"], new_head)
+        self.assertEqual(current["binding"]["base_sha"], self.policy)
+        observations = list(self.rt.meta["candidate_observations"].values())
+        self.assertTrue(observations)
+        self.assertTrue(self.rt.core.event_result(observations[-1]["event"]["event_id"])["accepted"])
+        self.paseo.run_agent.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
