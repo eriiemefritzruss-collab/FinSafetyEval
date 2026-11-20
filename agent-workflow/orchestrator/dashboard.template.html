@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FinSafetyEval · 协作运行状态</title>
+<style>
+:root{color-scheme:light;--paper:#f5f6f7;--surface:#fff;--ink:#23313c;--muted:#61717d;--line:#dce2e6;--accent:#24596d;--accent-bg:#eaf1f4;--good:#27634d;--good-bg:#eaf3ed;--wait:#895f1e;--wait-bg:#fbf2e3;--bad:#9b443e;--bad-bg:#f8eeec;--quiet:#eef1f3}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:108px}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif}button,input,select{font:inherit}button,a,input,select{touch-action:manipulation}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:3px}a{color:var(--accent);text-underline-offset:3px;overflow-wrap:anywhere}button{color:inherit}button:disabled{cursor:default}h1,h2,h3,p{margin:0}h1{font-size:24px;line-height:1.45;letter-spacing:-.3px}h2{font-size:18px;line-height:1.5;margin-bottom:6px}h3{font-size:15px;line-height:1.6}p+p{margin-top:9px}code,pre{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}code{overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;margin:9px 0 0}button{border:1px solid var(--line);background:var(--surface);padding:7px 12px;border-radius:5px}button:hover{background:var(--quiet)}button[aria-pressed=true]{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}[hidden]{display:none!important}.muted{color:var(--muted)}.small{font-size:12px}.eyebrow{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}.shell{width:min(1380px,100%);padding:0 30px;margin:auto}.masthead{background:var(--surface);border-bottom:1px solid var(--line);padding:23px 0 18px}.masthead-row{display:flex;justify-content:space-between;align-items:start;gap:20px}.snapshot{max-width:360px;text-align:right;font-size:12px;color:var(--muted)}.snapshot strong{display:block;color:var(--ink);font-weight:600;margin-bottom:4px}.summary{max-width:900px;margin-top:12px;font-size:15px}.badge{display:inline-flex;align-items:center;gap:5px;max-width:100%;border-radius:4px;padding:2px 7px;font-size:11px;line-height:1.6;font-weight:500;vertical-align:middle;background:var(--quiet);color:var(--muted);white-space:normal;overflow-wrap:anywhere}.badge.good{background:var(--good-bg);color:var(--good)}.badge.wait{background:var(--wait-bg);color:var(--wait)}.badge.bad{background:var(--bad-bg);color:var(--bad)}.badge.accent{background:var(--accent-bg);color:var(--accent)}.status-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}.tabs{display:flex;gap:5px;border-bottom:1px solid var(--line);margin-top:18px}.tab{border:0;border-radius:0;background:transparent;padding:11px 15px;border-bottom:2px solid transparent;font-size:13px}.tab[aria-selected=true]{color:var(--accent);border-color:var(--accent);background:transparent;font-weight:600}.content{padding-top:23px;padding-bottom:45px}.conclusion{border-left:3px solid var(--accent);padding:1px 0 1px 17px;margin-bottom:23px}.conclusion p{font-size:15px}.section-top{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px}.section-top p{font-size:12px;color:var(--muted)}.section{padding:23px 0;border-top:1px solid var(--line)}.section:first-child{padding-top:0;border:0}.columns{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(270px,1fr);gap:31px}.columns>*{min-width:0}.task-picker{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}.task-picker button{font-size:12px;text-align:left}.task-summary{display:flex;align-items:start;justify-content:space-between;gap:18px;margin-bottom:13px}.task-summary h3{margin-bottom:5px}.task-meta{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:9px;font-size:12px}.task-state{max-width:250px;text-align:right;flex:none}.task-state .muted{display:block;font-size:12px;margin-top:6px}.stage-strip{display:grid;grid-template-columns:repeat(var(--stage-count,7),minmax(0,1fr));gap:13px;padding:13px 0 18px}.stage{position:relative;display:flex;flex-direction:column;align-items:start;text-align:left;min-height:123px;min-width:0;padding:11px 9px;background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--line);border-radius:4px;line-height:1.45}.stage:hover{background:var(--surface);border-color:#9aaeb8}.stage::after{position:absolute;content:"→";right:-14px;top:43px;width:13px;text-align:center;color:#9aa6ad;font-size:13px;pointer-events:none}.stage:last-child::after{display:none}.stage[aria-pressed=true]{background:var(--accent-bg);border-color:var(--accent);color:var(--ink)}.stage.good{border-top-color:var(--good)}.stage.wait{border-top-color:var(--wait)}.stage.bad{border-top-color:var(--bad)}.stage-num{font-size:10px;color:var(--muted);margin-bottom:5px}.stage-name{display:block;font-weight:600;font-size:12px;margin-bottom:5px;overflow-wrap:anywhere}.stage-host{font-size:10px;color:var(--muted);display:block;margin-bottom:8px;overflow-wrap:anywhere}.stage .badge{margin-top:auto;font-size:10px;padding:1px 5px}.stage-detail{padding:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:5px;min-height:180px}.detail-title{display:flex;align-items:start;justify-content:space-between;gap:10px;margin-bottom:10px}.detail-grid{display:grid;grid-template-columns:98px minmax(0,1fr);gap:8px 14px;margin:0;font-size:12px}.detail-grid dt{color:var(--muted)}.detail-grid dd{margin:0;overflow-wrap:anywhere;white-space:pre-line}.detail-next{border-top:1px solid var(--line);padding-top:10px;margin-top:13px;font-size:12px}.detail-next b{font-weight:600;margin-right:10px}.capabilities{margin-top:2px}.capability{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;padding:12px 0;border-bottom:1px solid var(--line)}.capability:last-child{border-bottom:0}.capability strong{font-size:13px;font-weight:600}.capability p{grid-column:1/-1;font-size:12px;color:var(--muted)}.connection{padding:14px 0;border-bottom:1px solid var(--line)}.connection:last-child{border-bottom:0}.connection-head{display:flex;justify-content:space-between;align-items:start;gap:10px;font-size:13px}.connection-head strong{font-weight:600}.connection p{margin-top:5px;font-size:12px}.connection .evidence{margin-top:7px;color:var(--muted);font-size:11px;overflow-wrap:anywhere}.break-note{font-size:12px;background:var(--wait-bg);color:#6d5127;padding:12px 14px;border-radius:4px;margin-top:14px}.findings{display:grid;gap:0}.finding{padding:15px 0;border-bottom:1px solid var(--line)}.finding:last-child{border-bottom:0}.finding-heading{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}.finding h3{font-size:13px}.finding p{font-size:12px}.finding .next{margin-top:7px}.finding .source{font-size:11px;color:var(--muted);margin-top:6px;overflow-wrap:anywhere}.timeline-controls{display:flex;align-items:end;flex-wrap:wrap;gap:9px;margin-bottom:16px}.field{display:flex;flex-direction:column;gap:5px;min-width:180px;flex:1}.field label{font-size:12px;color:var(--muted)}input[type=search],select{border:1px solid var(--line);border-radius:5px;padding:8px 10px;min-width:0;background:var(--surface);color:var(--ink);width:100%}.checkbox-label{display:inline-flex;gap:7px;align-items:center;font-size:12px;padding-bottom:9px;white-space:nowrap}input[type=checkbox]{accent-color:var(--accent)}.event-count{font-size:12px;color:var(--muted);margin-bottom:6px}.timeline{list-style:none;padding:0;margin:0}.event{position:relative;border-left:1px solid var(--line);padding:9px 0 16px 21px;margin-left:4px}.event::before{content:"";position:absolute;left:-4px;top:18px;width:7px;height:7px;border:1px solid #8b9aa4;background:var(--surface);border-radius:50%}.event-head{display:flex;gap:7px 12px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px}.event-head time{font-size:11px;color:var(--muted)}.event-head strong{font-size:13px;font-weight:600}.event p{font-size:12px;color:var(--muted)}.event a{font-size:12px;display:inline-block;margin-top:4px}.empty-search{padding:14px 0;font-size:12px;color:var(--muted)}.checks{display:grid;gap:0}.check{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:12px}.check:last-child{border:0}.check a{font-weight:500}.check code{grid-column:1/-1;color:var(--muted);font-size:10px}.rule-demo{padding:17px 18px;background:var(--surface);border:1px solid var(--line);border-radius:5px;margin-top:21px}.demo-label{display:block;color:var(--wait);font-size:11px;font-weight:600;margin-bottom:7px}.rule-demo select{margin-top:8px;margin-bottom:11px;font-size:12px}.route-status{font-size:12px;font-weight:600;color:var(--accent);display:block;margin-bottom:5px}.rule-demo p{font-size:12px}.refresh{font-size:12px;padding-top:17px;margin-top:20px;border-top:1px solid var(--line)}.refresh summary{cursor:pointer;color:var(--accent);font-weight:500}.refresh p{color:var(--muted);margin-top:8px}.sources{display:flex;gap:6px 18px;flex-wrap:wrap;margin-top:10px;font-size:11px}.footer{border-top:1px solid var(--line);padding-top:17px;margin-top:10px;color:var(--muted);font-size:11px}.target-intro{max-width:900px;margin-bottom:22px}.target-intro h2{margin-bottom:8px}.target-intro .badge{margin-bottom:10px}.target-flow{display:grid;grid-template-columns:minmax(180px,1fr) 28px minmax(220px,1.2fr) 28px minmax(230px,1.3fr);align-items:stretch;gap:5px;padding:19px 0 26px}.target-node{padding:16px 0;border-top:3px solid var(--accent)}.target-node h3{font-size:14px;margin-bottom:4px}.target-node p{font-size:12px;color:var(--muted)}.target-node ol{font-size:12px;padding-left:19px;margin:10px 0}.target-node li+li{margin-top:8px}.flow-arrow{align-self:center;color:#8798a1;font-size:18px;text-align:center}.target-callout{padding:13px 16px;border-left:3px solid var(--wait);background:var(--wait-bg);font-size:12px}.meaning-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:25px;margin:22px 0}.meaning-list h3{font-size:13px;margin-bottom:6px}.meaning-list p{font-size:12px;color:var(--muted)}.roadmap{counter-reset:roadmap;display:grid;gap:0}.roadmap-item{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:8px 12px;padding:17px 0;border-bottom:1px solid var(--line)}.roadmap-item::before{counter-increment:roadmap;content:counter(roadmap,decimal-leading-zero);color:var(--muted);font-size:12px;padding-top:1px}.roadmap-item h3{font-size:13px}.roadmap-item p{font-size:12px;color:var(--muted);margin-top:4px}.no-data{font-size:12px;color:var(--muted)}
+@media(max-width:1050px){.shell{padding:0 22px}.columns{grid-template-columns:minmax(0,1.45fr) minmax(260px,1fr);gap:24px}.stage-strip{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.stage::after{display:none}.stage{min-height:113px}.target-flow{grid-template-columns:minmax(150px,1fr) 20px minmax(180px,1fr) 20px minmax(195px,1.1fr);gap:2px}}
+@media(max-width:800px){.columns{grid-template-columns:1fr;gap:0}.secondary{border-top:1px solid var(--line);padding-top:23px;margin-top:24px}.masthead-row{display:block}.snapshot{text-align:left;max-width:none;margin-top:12px}.snapshot strong{display:inline;margin-right:10px}.summary{font-size:14px}.stage-strip{grid-template-columns:repeat(4,minmax(0,1fr))}.target-flow{grid-template-columns:1fr;gap:0}.target-node{padding:13px 0}.flow-arrow{transform:rotate(90deg);padding:5px}.meaning-list{grid-template-columns:1fr;gap:17px}h1{font-size:22px}}
+@media(max-width:480px){.shell{padding:0 16px}.masthead{padding:18px 0 13px}.content{padding-top:18px}.section{padding:19px 0}.stage-strip{display:grid;grid-template-columns:1fr;gap:7px}.stage{min-height:0;display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:2px 8px;padding:9px 11px;border-top-width:1px;border-left-width:3px}.stage.good{border-left-color:var(--good)}.stage.wait{border-left-color:var(--wait)}.stage.bad{border-left-color:var(--bad)}.stage-num{grid-column:1;grid-row:1/3;align-self:center;margin:0}.stage-name{grid-column:2;grid-row:1;margin:0}.stage-host{grid-column:2;grid-row:2;margin:0}.stage .badge{grid-column:3;grid-row:1/3;align-self:center;max-width:110px}.stage-detail{padding:14px}.detail-grid{grid-template-columns:75px minmax(0,1fr);gap:7px 9px}.task-summary{display:block}.task-state{text-align:left;max-width:none;margin-top:10px}.task-state .muted{display:inline;margin-left:9px}.task-meta{font-size:11px}.task-picker button{flex:1}.timeline-controls .field{flex-basis:100%}.checkbox-label{padding-bottom:0}.roadmap-item{grid-template-columns:23px minmax(0,1fr)}.roadmap-item .badge{grid-column:2;justify-self:start}.tab{padding:10px 12px}.connection-head{flex-wrap:wrap}}
+@media print{body{background:white;font-size:11px}.shell{padding:0}.tabs,.task-picker,.timeline-controls,.rule-demo,.refresh{display:none}.columns{grid-template-columns:1fr}.stage-strip{display:block}.stage{display:inline-block;vertical-align:top;width:13%;margin:0 .5%;min-height:100px}.stage-detail{break-inside:avoid}.section{break-inside:auto}.event,.finding{break-inside:avoid}.secondary{margin-top:15px}a{color:inherit}}
+.source-freshness{border-top:1px solid var(--line);padding:16px 0 19px;margin-bottom:4px}.freshness-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 26px;margin-top:11px}.freshness-record{min-width:0}.freshness-record-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:12px}.freshness-record p{font-size:11px;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}.freshness-record .error{color:var(--bad)}.source-freshness .small{margin-top:10px}@media(max-width:650px){.freshness-grid{grid-template-columns:1fr;gap:13px}}
+</style>
+</head>
+<body>
+<header class="masthead">
+ <div class="shell">
+  <div class="masthead-row">
+   <div><p class="eyebrow">FinSafetyEval / Workflow observability</p><h1>一条需求，跨两台设备的协作链路</h1></div>
+   <div class="snapshot"><strong id="snapshotMode">只读快照</strong><span id="snapshotTime"></span><p id="snapshotFreshness"></p><p id="refresh-control"><!-- refresh-control:start -->文件快照 · 不自动刷新<!-- refresh-control:end --></p></div>
+  </div>
+  <p class="summary" id="headline"></p>
+  <div class="tabs" role="tablist" aria-label="链路视图">
+   <button class="tab" id="tab-current" type="button" role="tab" aria-selected="true" aria-controls="panel-current">当前实况</button>
+   <button class="tab" id="tab-target" type="button" role="tab" aria-selected="false" aria-controls="panel-target" tabindex="-1">运行方式与职责</button>
+  </div>
+ </div>
+</header>
+<main class="shell content">
+ <div id="panel-current" role="tabpanel" aria-labelledby="tab-current">
+  <div class="conclusion"><h2>先看任务停在哪一步</h2><p>点击阶段查看执行位置、版本证据和下一责任人。待批准与未启动都会明确显示。</p></div>
+  <section class="source-freshness" aria-label="运行时来源与时效"><h3>controller 与共享入口</h3><p class="small muted">本页来自持久事件和派发回执；进程自报的PID与轮询时间分别展示，不等同于端到端成功。</p><div id="runtimeRows" class="freshness-grid"></div></section><p class="break-note">业务任务 T-001 继续保留待审；本页的隔离试验不授予 T-001 实施或合并权限。</p>
+  <p id="emptyTasks" class="break-note" hidden>尚未收录任务事件；不会以示例任务代替真实进度。</p><div class="section" id="taskSection">
+   <div class="task-picker" id="taskPicker" role="group" aria-label="切换任务"></div>
+   <div class="task-summary"><div><h3 id="taskTitle"></h3><p class="small muted" id="taskSummary"></p><div class="task-meta" id="taskMeta"></div></div><div class="task-state"><span id="taskState"></span><span class="muted" id="taskOwner"></span></div></div>
+   <div id="stageStrip" class="stage-strip" role="group" aria-label="任务阶段"></div>
+   <section id="stageDetail" class="stage-detail" aria-live="polite" aria-label="阶段详情"></section>
+  </div>
+  <div class="section columns">
+   <section>
+    <div class="section-top"><div><h2>连接与接力能力</h2><p>客户端看得到会话、Agent 能互发任务、GitHub 能保存记录，分别核对。</p></div></div>
+    <div id="connectionList"></div>
+    <div class="break-note">任务接力通过 GitHub 事件与唯一 Mac controller；Windows notifier 回到原对话后，ACK 作为独立阶段核对。</div>
+   </section>
+   <section class="secondary"><div class="section-top"><div><h2>现在可以做到什么</h2><p>能力状态不是业务验收结论。</p></div></div><div class="capabilities" id="capabilityList"></div></section>
+  </div>
+  <div class="section columns">
+   <section>
+    <div class="section-top"><div><h2>阻塞与保留范围</h2><p>页面不会执行配置、批准、派发或合并。</p></div></div>
+    <div class="findings" id="findingList"></div>
+   </section>
+   <section class="secondary">
+    <div class="section-top"><div><h2>CI 检查记录</h2><p>检查结果绑定候选提交，点击查看 GitHub。</p></div></div>
+    <div class="checks" id="checkList"></div>
+    <div class="rule-demo">
+     <span class="demo-label">规则演示 · 不写入 GitHub，不调度任务</span>
+     <h3>Review 没通过，谁接手？</h3>
+     <label class="small muted" for="routeSelect">选择一种返回原因</label>
+     <select id="routeSelect"><option value="code">实现不符合已批准计划</option><option value="plan">计划本身不能满足需求</option><option value="env">缺环境或运行证据</option><option value="head">代码已更新，旧 Review 过期</option></select>
+     <div id="routeOutput" role="status" aria-live="polite"></div>
+    </div>
+   </section>
+  </div>
+  <section class="section" aria-label="实际派发账本"><div class="section-top"><div><h2>实际派发账本</h2><p>claimed 不等于已启动，completed 只说明回执已保存；uncertain 不能自动重派。</p></div></div><div id="jobList"></div><p id="emptyJobs" class="small muted" hidden>尚无派发记录。</p></section>
+  <section class="section">
+   <div class="section-top"><div><h2>实际发生过的过程</h2><p>事件来自本次核对与已保存证据；不会补画尚未发生的业务步骤。</p></div></div>
+   <div class="timeline-controls">
+    <div class="field"><label for="search">搜索任务、事件或证据</label><input id="search" type="search" placeholder="例如 host_unknown、政策来源、PR #2" autocomplete="off"></div>
+    <button type="button" id="clearSearch">清空</button>
+    <label class="checkbox-label"><input type="checkbox" id="onlyCurrentTask">只看所选任务</label>
+   </div>
+   <p id="eventCount" class="event-count" role="status"></p>
+   <ol id="eventList" class="timeline"></ol>
+   <p id="emptySearch" class="empty-search" hidden>没有匹配的实际事件。可尝试更短的关键词。</p>
+  </section>
+ </div>
+ <div id="panel-target" role="tabpanel" aria-labelledby="tab-target" hidden>
+  <section class="target-intro"><span class="badge accent">职责结构 · 实际进度以当前实况为准</span><h2>一个对话入口，后台独立执行与核验</h2><p>Windows Planner 直接写 GitHub 事件；Mac 唯一 controller 领取实施及独立 Review 工作；Windows notifier 读取结果并回送固定入口。直接 daemon fleet 连接不作为本链路的必需条件。</p></section>
+  <div class="target-flow" role="img" aria-label="Windows固定对话到GitHub事件，再由Mac协调器实施和独立审核，结果经GitHub回到Windows原对话，最后等待用户合并。">
+   <section class="target-node"><p class="eyebrow">固定入口</p><h3>Windows · Planner 对话</h3><p>持续提交需求、冻结计划并查看回传结果。</p><ol><li>每项需求独立任务ID</li><li>计划进入共享事件记录</li><li>用户明确批准有效版本</li><li>notifier回送并记录关联ACK</li></ol></section><span class="flow-arrow" aria-hidden="true">→</span>
+   <section class="target-node"><p class="eyebrow">共享事实</p><h3>GitHub · 任务与证据</h3><p>完整版本绑定和报告供两端读取。</p><ol><li>需求、计划与批准事件</li><li>实现head/base、CI及报告</li><li>返工分类与新版本记录</li><li>结果通知和入口ACK分别留痕</li></ol></section><span class="flow-arrow" aria-hidden="true">→</span>
+   <section class="target-node"><p class="eyebrow">后台角色</p><h3>Mac · 唯一controller</h3><p>SQLite持久去重，工作目录与角色分离。</p><ol><li>获批才派发Implementer</li><li>就绪后启动新Reviewer</li><li>旧head结论失效，按原因返工</li><li>PASS进入待用户合并，保留原对话ACK阶段</li></ol></section>
+  </div><div class="target-callout">入口收到ACK不代表用户已读；READY_FOR_HUMAN_MERGE不代表已送达或已合并。最终合并始终由用户确认。</div>
+ </div>
+ <details class="refresh"><summary>刷新与证据说明</summary><p>文件快照不自动刷新。本机HTTP模式由浏览器每10秒重新读取同一HTML；可用顶部链接暂停。页面没有fetch、后台状态写入或操作按钮；controller更新快照与浏览器刷新分别运行。</p><div id="sourceList" class="sources"></div></details>
+ <footer class="footer">只读协作链路审查 · 页面操作仅筛选、查看与演示 · 人工批准、独立 Review 和最终合并分别留痕</footer>
+</main>
+<script type="application/json" id="chain-data">__CHAIN_DATA__</script>
+<script>
+(() => {
+ 'use strict';
+ const packet = JSON.parse(document.getElementById('chain-data').textContent);
+ const data = packet.view;
+ const byId = id => document.getElementById(id);
+ const list = value => Array.isArray(value) ? value : [];
+ const text = value => value == null ? '' : String(value);
+ function el(tag, cls, value) { const node = document.createElement(tag); if (cls) node.className = cls; if (value != null) node.textContent = text(value); return node; }
+ function tone(value) {
+  const s = text(value).toLowerCase();
+  if (/unknown|block|fail|缺口|未打通|阻塞|不可用|失败|需补齐|断开/.test(s)) return 'bad';
+  if (/uncertain|failed|执行结果不确定/.test(s)) return 'bad';
+  if (/pending|claimed|dispatched|superseded|waiting|review|proposed|draft|待|未启动|未配置|未实施|未确认|not.started|planned|future/.test(s)) return 'wait';
+  if (/pass|success|done|complete|verified|live|ready|通过|已验证|已完成|已登记|已收录|已记录|已提交|已确认|已回写|可用|已连接|online/.test(s)) return 'good';
+  return '';
+ }
+ function badge(value, css) { const node = el('span', 'badge ' + (css || tone(value))); const dot = el('span', 'status-dot'); dot.setAttribute('aria-hidden', 'true'); node.append(dot, document.createTextNode(text(value))); return node; }
+ function safeLink(url, label) {
+  const s = text(url);
+  if (!/^https?:\/\//i.test(s)) return el('span', '', label || s);
+  const a = el('a', '', label || s); a.href = s; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a;
+ }
+ function replace(id, nodes) { byId(id).replaceChildren(...nodes); }
+ byId('snapshotMode').textContent = text(data.mode || '只读快照');
+ byId('snapshotTime').textContent = '页面生成：' + text(data.asOf);
+ byId('snapshotFreshness').textContent = '阶段只依据已接纳事件；回传ACK单独核对。';
+ byId('headline').textContent = text(data.conclusion);
+ replace('sourceList', list(data.sources).map(s => safeLink(s.url, s.label)));
+ replace('runtimeRows', list(data.runtimeRows).map(item => { const n=el('div','freshness-record'); n.append(el('strong','small',item.label),el('p','',item.value)); return n; }));
+
+ const tasks = list(data.tasks);
+ let activeTask = tasks.find(t => t.test_mode) || tasks[0];
+ byId('emptyTasks').hidden = tasks.length > 0; byId('taskSection').hidden = tasks.length === 0;
+ let activeStage = null;
+ function renderTaskPicker() {
+  replace('taskPicker', tasks.map(task => {
+   const b = el('button', '', task.id + ' · ' + task.title); b.type = 'button'; b.id = 'task-' + task.id;
+   b.setAttribute('aria-pressed', String(task === activeTask));
+   b.addEventListener('click', () => { activeTask = task; activeStage = null; renderTask(); renderEvents(); }); return b;
+  }));
+ }
+ function detailRow(dl, label, value) { dl.append(el('dt', '', label), el('dd', '', value)); }
+ function renderStage() {
+  if (!activeStage) { replace('stageDetail', [el('p', 'no-data', '暂无已核对的阶段记录。')]); return; }
+  const head = el('div', 'detail-title'); head.append(el('h3', '', activeStage.title), badge(activeStage.status));
+  const dl = el('dl', 'detail-grid');
+  detailRow(dl, '责任 / 执行位置', activeStage.owner ? activeStage.owner + ' · ' + text(activeStage.host) : activeStage.host);
+  detailRow(dl, '已核对事实', activeStage.summary);
+  detailRow(dl, '前置 / 范围', activeStage.prerequisite || activeStage.detail);
+  detailRow(dl, '证据来源', activeStage.source);
+  if(activeStage.versions)detailRow(dl, '版本绑定', activeStage.versions);
+  const next = el('p', 'detail-next'); next.append(el('b', '', '下一步'), document.createTextNode(text(activeStage.nextAction)));
+  const nodes = [head, dl, next];
+  if (activeStage.url) { const p = el('p', 'small'); p.style.marginTop = '9px'; p.append(safeLink(activeStage.url, '查看关联记录')); nodes.push(p); }
+  replace('stageDetail', nodes);
+  for (const button of byId('stageStrip').children) button.setAttribute('aria-pressed', String(button.dataset.stageId === text(activeStage.id)));
+ }
+ function renderTask() {
+  renderTaskPicker(); if (!activeTask) return;
+  byId('taskTitle').textContent = activeTask.title;
+  byId('taskSummary').textContent = activeTask.summary;
+  replace('taskState', [badge(activeTask.state)]);
+  byId('taskOwner').textContent = '下一责任人：' + text(activeTask.nextOwner);
+  const meta = [];
+  if (activeTask.prUrl) meta.push(safeLink(activeTask.prUrl, '查看任务 PR'));
+  if (activeTask.head) { const c = el('code', '', 'head ' + text(activeTask.head).slice(0, 12)); c.setAttribute('aria-label', '候选提交 ' + text(activeTask.head)); meta.push(c); }
+  replace('taskMeta', meta);
+  const stages = list(activeTask.stages);
+  activeStage = activeStage && stages.includes(activeStage) ? activeStage : stages.find(s => /wait|pending|待|block|缺口/.test(text(s.status).toLowerCase())) || stages[0];
+  const strip = byId('stageStrip'); strip.style.setProperty('--stage-count', String(Math.max(1, stages.length)));
+  replace('stageStrip', stages.map((stage, index) => {
+   const b = el('button', 'stage ' + tone(stage.status)); b.type = 'button'; b.dataset.stageId = text(stage.id); b.id = 'stage-' + text(stage.id);
+   b.setAttribute('aria-pressed', String(stage === activeStage)); b.setAttribute('aria-controls', 'stageDetail');
+   b.append(el('span', 'stage-num', String(index + 1).padStart(2, '0')), el('span', 'stage-name', stage.title), el('span', 'stage-host', stage.host), badge(stage.status));
+   b.addEventListener('click', () => { activeStage = stage; renderStage(); }); return b;
+  })); renderStage();
+ }
+ replace('capabilityList', list(data.capabilities).map(item => { const n = el('div', 'capability'); n.append(el('strong', '', item.title), badge(item.status), el('p', '', item.detail)); return n; }));
+ replace('connectionList', list(data.connections).map(item => { const n = el('div', 'connection'); const h = el('div', 'connection-head'); h.append(el('strong', '', item.from + ' → ' + item.to), badge(item.status)); n.append(h, el('p', '', item.detail), el('p', 'evidence', item.evidence)); return n; }));
+ replace('findingList', list(data.findings).map(item => { const n = el('article', 'finding'); const h = el('div', 'finding-heading'); h.append(badge(item.severity, /高|P0|P1|high|critical/i.test(text(item.severity)) ? 'bad' : 'wait'), el('h3', '', item.title)); const next = el('p', 'next'); next.append(el('b', '', '建议：'), document.createTextNode(text(item.nextAction))); n.append(h, el('p', '', item.detail), next, el('p', 'source', '依据：' + text(item.source))); return n; }));
+ replace('checkList', list(data.checks).map(item => { const n = el('div', 'check'); n.append(safeLink(item.url, item.name), badge(item.status)); if (item.sha) n.append(el('code', '', '适用提交 ' + text(item.sha))); return n; }));
+
+ replace('jobList', list(data.jobs).map(job => { const n=el('article','finding'); const h=el('div','finding-heading'); h.append(el('strong','small','#'+job.id+' · '+job.task+' · '+job.kind),badge(job.status),el('span','small muted',job.label)); n.append(h,el('p','small','worker='+text(job.worker||'未领取')+' · agent='+text(job.agent||'无回执')+' · attempts='+text(job.attempts))); if(job.error)n.append(el('p','small',job.error)); const d=el('details','small'); d.append(el('summary','','版本与目录'),el('pre','',JSON.stringify({binding:job.binding,worktree:job.worktree},null,2))); n.append(d); return n; }));
+ byId('emptyJobs').hidden = list(data.jobs).length > 0;
+
+
+ const events = list(data.events);
+ function renderEvents() {
+  const words = byId('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const currentOnly = byId('onlyCurrentTask').checked;
+  const selected = events.filter(event => {
+   const taskMatch = !currentOnly || !event.task || event.task === '*' || activeTask && event.task === activeTask.id;
+   const haystack = [event.task, event.at, event.kind, event.title, event.detail].map(text).join(' ').toLowerCase();
+   return taskMatch && words.every(w => haystack.includes(w));
+  });
+  byId('eventCount').textContent = '显示 ' + selected.length + ' / ' + events.length + ' 条已记录事件';
+  byId('emptySearch').hidden = selected.length > 0;
+  replace('eventList', selected.map(event => { const n = el('li', 'event'); const h = el('div', 'event-head'); h.append(el('time', '', event.at), badge(event.task || '链路', 'accent'), el('strong', '', event.title)); n.append(h, el('p', '', event.detail)); if (event.url) n.append(safeLink(event.url, '查看证据')); return n; }));
+ }
+ byId('search').addEventListener('input', renderEvents);
+ byId('onlyCurrentTask').addEventListener('change', renderEvents);
+ byId('clearSearch').addEventListener('click', () => { byId('search').value = ''; renderEvents(); byId('search').focus(); });
+ const routes = {
+  code: { state: 'CODE_CHANGES_REQUIRED → Mac Implementer', detail: '保留已批准计划，修复原实现 PR。交付新的候选 head 后，由独立 Reviewer 复审。' },
+  plan: { state: 'PLAN_REVISION_REQUIRED → Windows Planner', detail: '暂停依赖原计划的实施，保留旧版并提交新计划。你批准新版本后，再让 Mac 对齐实现。' },
+  env: { state: 'ENV_BLOCKED → 环境责任人', detail: '记录已验证部分和缺少的运行条件。恢复环境后补验，未运行的检查不能标记通过。' },
+  head: { state: 'REVIEWING → 独立 Reviewer', detail: '旧 Review 只适用于旧提交。获取新的 head、base、计划及政策来源，重新运行受影响的验证。' }
+ };
+ function renderRoute() { const r = routes[byId('routeSelect').value] || routes.code; replace('routeOutput', [el('code', 'route-status', r.state), el('p', '', r.detail)]); }
+ byId('routeSelect').addEventListener('change', renderRoute);
+ const tabs = [byId('tab-current'), byId('tab-target')];
+ function selectTab(button, focus) { for (const tab of tabs) { const active = tab === button; tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1; byId(tab.getAttribute('aria-controls')).hidden = !active; } if (focus) button.focus(); }
+ tabs.forEach((tab, i) => { tab.addEventListener('click', () => selectTab(tab, false)); tab.addEventListener('keydown', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End') { e.preventDefault(); const index = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : (i + (e.key === 'ArrowLeft' ? -1 : 1) + tabs.length) % tabs.length; selectTab(tabs[index], true); } }); });
+ renderTask(); renderEvents(); renderRoute();
+})();
+</script>
+</body>
+</html>
