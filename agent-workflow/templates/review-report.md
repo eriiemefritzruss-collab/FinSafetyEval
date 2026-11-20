@@ -14,6 +14,7 @@
 - tested_base_sha：`<本次使用的目标主干完整 SHA>`
 - tested_integration_sha：`<实际测试的合并提交 SHA；未做合并测试则明确写未执行>`
 - policy_version：`<可信审查政策版本>`
+- policy_source_sha：`<可信政策来源的完整 Git commit SHA>`
 - Reviewer / 运行环境 / 时间：`<独立会话、OS、关键工具版本、测试数据标识、时区>`
 - 有效性：`<截至复核时上述版本是否仍匹配；不匹配则明确过期>`
 
@@ -74,7 +75,7 @@
 
 ## 结构化 review 记录
 
-门禁所用 review 记录必须与独立 `approval`、`current` 记录的共同字段一致：`task_id`、`repository`、`requirement_revision`、`plan_version`、`approved_plan_sha`、`plan_path`、`plan_blob_oid`、`code_base_sha`、`policy_version`。另含 `pr_head_sha`、`tested_base_sha`、`tested_integration_sha`、`overall`、`gates`、`required_checks`、`blocking_findings`。
+门禁所用 review 记录必须与独立 `approval`、`current` 记录的共同字段一致：`task_id`、`repository`、`requirement_revision`、`plan_version`、`approved_plan_sha`、`plan_path`、`plan_blob_oid`、`code_base_sha`、`policy_version`、`policy_source_sha`。另含 `pr_head_sha`、`tested_base_sha`、`tested_integration_sha`、`overall`、`gates`、`required_checks`、`blocking_findings`。
 
 - `gates` 必须包含 `Code`、`Integration`、`Deployment`、`Acceptance` 四项，每项为 `{ "status": "PASS|FAIL|BLOCKED|N/A", "reason": "实际证据或明确依据" }`。
 - `required_checks` 为 `{ "name": "已冻结的检查名", "status": "实际状态", "head_sha": "本次候选 SHA" }` 数组，覆盖 approval 冻结的全部必需检查；不得由审核记录自行缩减。

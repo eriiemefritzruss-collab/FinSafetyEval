@@ -29,6 +29,7 @@ plan_version: <版本>
 approved_plan_sha: <40 位提交 SHA>
 plan_path / plan_blob_oid: <路径与精确 blob OID>
 policy_version: <可信审查政策版本>
+policy_source_sha: <可信政策来源的完整 Git commit SHA；未获批不填造>
 code_base_sha: <实施起点 SHA>
 pr_head_sha: <候选 head SHA>
 validation_evidence: <可复跑命令、运行记录与产物位置>

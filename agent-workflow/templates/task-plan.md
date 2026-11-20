@@ -11,6 +11,7 @@
 - plan_version：`<例如 1>`
 - code_reference_sha：`<Planner 实际阅读的代码提交 SHA>`
 - policy_version：`<可信协作政策的版本或提交 SHA>`
+- policy_source_sha：`<可信政策来源的完整 Git commit SHA>`
 - Planner / Implementer / Reviewer / merge 人：`<分别填写>`
 - 依赖任务与顺序：`<依赖或明确无>`
 
@@ -65,6 +66,7 @@ requirement_revision: <冻结需求快照版本>
 plan_path: plans/<task_id>/plan-v<version>.md
 plan_blob_oid: <上述提交中该文件的 Git blob OID>
 policy_version: <可信政策版本>
+policy_source_sha: <可信政策来源的完整 Git commit SHA；未获批不填造>
 code_base_sha: <本次实现起点；准入时绑定，未实施不填造>
 required_gates: <冻结的必需门槛数组，如 [Code, Integration, Acceptance]>
 required_checks: <冻结的必需检查名称数组，至少一项>
@@ -87,7 +89,7 @@ v1 推荐先批准并合入 docs-only plan PR，再启动实施。计划修订�
 
 ## 结构化门禁记录
 
-确定性门禁使用独立的 `approval`、`current`、`review` 记录，共同绑定以下字段：`task_id`、`repository`、`requirement_revision`、`plan_version`、`approved_plan_sha`、`plan_path`、`plan_blob_oid`、`code_base_sha`、`policy_version`。批准前不得将任何演练数据写成真实 approval。
+确定性门禁使用独立的 `approval`、`current`、`review` 记录，共同绑定以下字段：`task_id`、`repository`、`requirement_revision`、`plan_version`、`approved_plan_sha`、`plan_path`、`plan_blob_oid`、`code_base_sha`、`policy_version`、`policy_source_sha`。批准前不得将任何演练数据写成真实 approval。
 
 `approval` 另含 `approved_by`、`required_gates` 数组、非空检查名称数组 `required_checks`，可选 `require_integration_commit`（布尔值，默认 false）。必须检查的名称和门槛在批准时冻结，实现者不能在 review 中减少检查。
 

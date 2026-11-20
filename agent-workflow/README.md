@@ -42,7 +42,7 @@ python3 agent-workflow/check_handoff.py --repo . \
 ```
 
 三份记录均绑定 `task_id, repository, requirement_revision, plan_version,
-approved_plan_sha, plan_path, plan_blob_oid, code_base_sha, policy_version`。
+approved_plan_sha, plan_path, plan_blob_oid, code_base_sha, policy_version, policy_source_sha`。
 `requirement_revision` 使用冻结需求文件原始 UTF-8 字节的 `sha256:<64位十六进制>`。
 
 approval 另含 `approved_by`、`required_gates`（四 Gate 的子集）、`required_checks`
@@ -56,6 +56,7 @@ current 另含 `pr_head_sha, tested_base_sha`；review 绑定 current 全部字�
 该命令输出 `advisory: true`：它只核对人工可信输入与本地 Git 对象，
 不会主动取回 GitHub、认证批准人、证明 CI 真伪、确认有效计划是否已被替换，或执行 merge。
 不能直接作为平台强制门禁。可信输入、最新远端版本与身份仍由协调人核实；
+`policy_source_sha` 必须是本地可读取的可信政策来源完整提交 SHA，并在三份记录中一致；
 政策/核验器必须来自可信版本，不能让候选 PR 的自定义规则决定自身通过。
 即使输出 READY_FOR_HUMAN_MERGE，最终合并仍由用户确认。
 

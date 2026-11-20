@@ -82,6 +82,7 @@ class HandoffTests(unittest.TestCase):
             "plan_blob_oid": self.blob,
             "code_base_sha": self.plan,
             "policy_version": "workflow-v1",
+            "policy_source_sha": self.plan,
         }
         self.approval = {
             **common, "approved_by": "human fixture",
@@ -147,6 +148,34 @@ class HandoffTests(unittest.TestCase):
     def test_approved_requirement_drift_requires_user(self):
         self.current["requirement_revision"] = "sha256:" + "2" * 64
         self.assert_state("NEEDS_HUMAN")
+
+    def test_policy_source_required_in_each_record(self):
+        for record in (self.approval, self.current, self.review):
+            with self.subTest(record=record):
+                original = record.pop("policy_source_sha")
+                self.assert_state("NEEDS_HUMAN")
+                record["policy_source_sha"] = original
+
+    def test_policy_source_must_be_full_sha(self):
+        for record in (self.approval, self.current, self.review):
+            with self.subTest(record=record):
+                original = record["policy_source_sha"]
+                record["policy_source_sha"] = self.plan[:7]
+                self.assert_state("NEEDS_HUMAN")
+                record["policy_source_sha"] = original
+
+    def test_policy_source_must_be_available_commit(self):
+        for record in (self.approval, self.current, self.review):
+            record["policy_source_sha"] = "f" * 40
+        self.assert_state("NEEDS_HUMAN")
+
+    def test_current_policy_source_must_match_approval(self):
+        self.current["policy_source_sha"] = self.initial
+        self.assert_state("NEEDS_HUMAN")
+
+    def test_review_policy_source_drift_requires_review(self):
+        self.review["policy_source_sha"] = self.initial
+        self.assert_state("REVIEWING")
 
     def test_old_plan_review_is_stale(self):
         self.review["plan_version"] = 2

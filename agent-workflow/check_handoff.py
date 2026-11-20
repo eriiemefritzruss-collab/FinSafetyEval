@@ -16,7 +16,7 @@ from pathlib import Path, PurePosixPath
 BINDINGS = (
     "task_id", "repository", "requirement_revision", "plan_version",
     "approved_plan_sha", "plan_path", "plan_blob_oid", "code_base_sha",
-    "policy_version",
+    "policy_version", "policy_source_sha",
 )
 GATES = ("Code", "Integration", "Deployment", "Acceptance")
 SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -82,7 +82,7 @@ def bindings(value, label):
     revision = value["requirement_revision"]
     if not isinstance(revision, str) or not REVISION.fullmatch(revision):
         raise InvalidEvidence(f"{label}.requirement_revision must be sha256:<64 lowercase hex>")
-    for key in ("approved_plan_sha", "plan_blob_oid", "code_base_sha"):
+    for key in ("approved_plan_sha", "plan_blob_oid", "code_base_sha", "policy_source_sha"):
         full_sha(value[key], f"{label}.{key}")
     path = value["plan_path"]
     if (PurePosixPath(path).is_absolute() or "\\" in path or ":" in path
@@ -182,7 +182,7 @@ def evaluate(repo, approval, review, current):
         code, inside = git(repo, "rev-parse", "--is-inside-work-tree")
         if code or inside != "true":
             return result("ENV_BLOCKED", ["--repo is not an available Git working tree"])
-        for key in ("approved_plan_sha", "code_base_sha", "pr_head_sha", "tested_base_sha"):
+        for key in ("approved_plan_sha", "code_base_sha", "pr_head_sha", "tested_base_sha", "policy_source_sha"):
             require_object(repo, current[key], "commit", key)
         require_object(repo, current["plan_blob_oid"], "blob", "plan_blob_oid")
         for key in ("approved_plan_sha", "tested_base_sha", "pr_head_sha"):

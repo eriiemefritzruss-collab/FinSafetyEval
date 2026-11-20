@@ -1,6 +1,6 @@
 # FinSafetyEval 三角色协作政策
 
-政策标识：`workflow-v1`。执行时还须记录获取本政策的可信提交 SHA 或文件 blob，不可只凭可变文件路径确认版本。
+政策标识：`workflow-v1`。执行时还须记录获取本政策的可信来源提交 SHA（`policy_source_sha`，完整 40 位 Git commit），不可只凭可变文件路径确认版本。
 
 本政策将工作区《Paseo 跨设备 Agent 协作方案》用于 FinSafetyEval 的第一阶段人工接力试点。本次用户请求授权协作基础搭建（bootstrap）；新增规则、模板与脚本须作为可审阅候选交付，不能自行声明用户已经批准未来业务计划、权限规则或合并。
 
@@ -79,7 +79,7 @@ CI、门禁脚本、角色/计划规则、CODEOWNERS、权限、密钥和分支�
 
 ## Advisory 门禁输入契约
 
-独立记录 `approval`、`current`、`review`，共同字段为 `task_id`、`repository`、`requirement_revision`、`plan_version`、`approved_plan_sha`、`plan_path`、`plan_blob_oid`、`code_base_sha`、`policy_version`。
+独立记录 `approval`、`current`、`review`，共同字段为 `task_id`、`repository`、`requirement_revision`、`plan_version`、`approved_plan_sha`、`plan_path`、`plan_blob_oid`、`code_base_sha`、`policy_version`、`policy_source_sha`。
 
 - `approval` 另需 `approved_by`、`required_gates` 数组、非空检查名称数组 `required_checks`；可选布尔 `require_integration_commit` 默认 false。必需门槛和检查在用户批准时冻结，不能由实现或审核记录减少。
 - `current` 另需当前现场核对的 `pr_head_sha` 与 `tested_base_sha`。
