@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "task_id": "T-TEST-001",
+  "issue": 5,
+  "plan_version": 1,
+  "test_mode": true,
+  "requirement_revision": "sha256:f39941454eebfc686262419bd4d15dd3d1360ce7a6e21a2938d887e052610e49",
+  "code_reference_sha": "19bc38c06ef33c7611b0cb75bbd3df5ff8ed5cf8",
+  "policy_source_sha": "fe7ac7b859d35fcfd027e1eeb2abd47255abf6dc",
+  "goal": "Create only the isolated three-field JSON fixture; verify GitHub-mediated Windows-to-Mac implementation, independent review, automatic return and exact notification ACK. Never merge.",
+  "allowed_paths": [
+    "agent-workflow/fixtures/e2e/T-TEST-001.json"
+  ],
+  "expected_json": {
+    "task_id": "T-TEST-001",
+    "requirement_revision": "sha256:f39941454eebfc686262419bd4d15dd3d1360ce7a6e21a2938d887e052610e49",
+    "marker": "FSA_CROSS_DEVICE_OK"
+  },
+  "validation_commands": [
+    [
+      "python3",
+      "-B",
+      "-c",
+      "import json,pathlib; p=pathlib.Path('agent-workflow/fixtures/e2e/T-TEST-001.json'); value=json.loads(p.read_text(encoding=\"utf-8\")); expected={'task_id': 'T-TEST-001', 'requirement_revision': 'sha256:f39941454eebfc686262419bd4d15dd3d1360ce7a6e21a2938d887e052610e49', 'marker': 'FSA_CROSS_DEVICE_OK'}; assert type(value) is dict and value==expected, \"fixture does not match frozen three-field contract\"; print(json.dumps(value,sort_keys=True))"
+    ],
+    [
+      "python3",
+      "-B",
+      "-c",
+      "expected={'task_id': 'T-TEST-001', 'requirement_revision': 'sha256:f39941454eebfc686262419bd4d15dd3d1360ce7a6e21a2938d887e052610e49', 'marker': 'FSA_CROSS_DEVICE_OK'}; rejects=[dict(expected,task_id=\"OTHER\"),dict(expected,requirement_revision=\"sha256:\"+\"0\"*64),dict(expected,marker=\"WRONG\"),{k:v for k,v in expected.items() if k!=\"marker\"},dict(expected,extra=\"not allowed\"),[],None]; assert all(not (type(v) is dict and v==expected) for v in rejects); print(\"six in-memory contract counterexamples rejected\")"
+    ],
+    [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "agent-workflow/tests",
+      "-v"
+    ],
+    [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "agent-workflow/orchestrator/tests",
+      "-v"
+    ]
+  ],
+  "required_checks": [
+    "workflow-tests (ubuntu-latest)",
+    "workflow-tests (windows-latest)"
+  ],
+  "required_gates": [
+    "Code",
+    "Integration",
+    "Acceptance"
+  ],
+  "deployment_gate": {
+    "status": "N/A",
+    "reason": "Only a static isolated fixture is added; no service or infrastructure deployment."
+  },
+  "test_authorization": {
+    "source": "Explicit current user instruction in the fixed Windows Planner conversation on 2026-11-20",
+    "entry_agent_id": "20142303-7657-408c-af41-f3cfa3ba8340",
+    "task_id": "T-TEST-001",
+    "allow_unmerged_plan_test_approval": true,
+    "explicit_user_approval_required": true,
+    "merge_authorized": false,
+    "scope": "This exact isolated task and its single allowed fixture path only; ordinary production rules remain unchanged."
+  },
+  "plan_pr_base": "feat/paseo-agent-handoff",
+  "implementation_pr_base": "feat/paseo-agent-handoff",
+  "role_separation": {
+    "implementer": "Mac controller-dispatched isolated implement agent",
+    "reviewer": "Different agent and fixed candidate worktree; independently run validation commands",
+    "windows_planner": "Do not implement fixture or substitute for independent review"
+  },
+  "notification_consumption": {
+    "automatic_return_required": true,
+    "entry_agent_id": "20142303-7657-408c-af41-f3cfa3ba8340",
+    "sequence": [
+      "Read actual GitHub report and current candidate/CI/PR state",
+      "Report real outcome, head/base and unmerged state in the fixed Windows conversation",
+      "Run entry.py ack for the exact notification_event_id"
+    ],
+    "queued_is_consumed": false,
+    "notification_is_new_authorization": false,
+    "create_echo_task": false
+  },
+  "merge_authorized": false
+}
