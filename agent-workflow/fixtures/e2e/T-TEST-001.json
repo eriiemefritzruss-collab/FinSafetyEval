@@ -1,0 +1,5 @@
+{
+  "task_id": "T-TEST-001",
+  "requirement_revision": "sha256:f39941454eebfc686262419bd4d15dd3d1360ce7a6e21a2938d887e052610e49",
+  "marker": "FSA_CROSS_DEVICE_OK"
+}
