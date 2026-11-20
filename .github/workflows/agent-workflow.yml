@@ -3,7 +3,7 @@ name: Agent workflow offline checks
 on:
   pull_request:
   push:
-    branches: [main, 'chore/paseo-workflow-pilot']
+    branches: [main, 'chore/paseo-workflow-pilot', 'feat/paseo-agent-handoff']
   workflow_dispatch:
 
 permissions:
@@ -27,3 +27,5 @@ jobs:
           python-version: '3.10'
       - name: Run offline workflow contracts
         run: python -m unittest discover -s agent-workflow/tests -v
+      - name: Run durable orchestration contracts
+        run: python -m unittest discover -s agent-workflow/orchestrator/tests -v
