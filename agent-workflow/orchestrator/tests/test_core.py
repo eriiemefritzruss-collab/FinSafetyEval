@@ -402,6 +402,47 @@ class ControllerTests(unittest.TestCase):
             with self.assertRaises(InvalidEvent):
                 self.controller.ingest(self.event("IMPLEMENTATION_BLOCKED", {**payload, "summary": summary}))
 
+    def test_review_environment_resume_retains_implementation_pr(self):
+        self.open()
+        self.propose()
+        self.approve()
+        binding = deepcopy(self.controller.state("T-TEST")["binding"])
+        binding.update(head_sha="4" * 40, base_sha="5" * 40)
+        self.ingest("IMPLEMENTATION_READY", {"implementation_pr": 9}, binding)
+        self.review("ENV_BLOCKED")
+        self.assertEqual(self.controller.state("T-TEST")["implementation_pr"], 9)
+        event, jobs = self.ingest("ENV_RESUMED")
+        self.assertTrue(self.accepted(event))
+        review_job = next(job for job in jobs if job["kind"] == "review")
+        self.assertEqual(review_job["payload"]["implementation_pr"], 9)
+
+    def test_new_plan_clears_previous_implementation_pr(self):
+        self.prepare()
+        self.assertEqual(self.controller.state("T-TEST")["implementation_pr"], 5)
+        self.review("PLAN_REVISION_REQUIRED")
+        self.propose(2)
+        self.assertIsNone(self.controller.state("T-TEST")["implementation_pr"])
+        _, jobs = self.approve()
+        self.assertIsNone(jobs[0]["payload"]["implementation_pr"])
+
+    def test_head_changed_preserves_pr_when_omitted_and_updates_when_supplied(self):
+        self.prepare()
+        binding = deepcopy(self.controller.state("T-TEST")["binding"])
+        binding["head_sha"] = "6" * 40
+        event, jobs = self.ingest("HEAD_CHANGED", {}, binding)
+        self.assertTrue(self.accepted(event))
+        self.assertEqual(self.controller.state("T-TEST")["implementation_pr"], 5)
+        self.assertEqual(jobs[0]["payload"]["implementation_pr"], 5)
+        binding["head_sha"] = "7" * 40
+        event, jobs = self.ingest("HEAD_CHANGED", {"implementation_pr": 9}, binding)
+        self.assertTrue(self.accepted(event))
+        self.assertEqual(self.controller.state("T-TEST")["implementation_pr"], 9)
+        self.assertEqual(jobs[0]["payload"]["implementation_pr"], 9)
+        # Late PR attachment/change must not leave a queued review bound to the old PR.
+        event, jobs = self.ingest("HEAD_CHANGED", {"implementation_pr": 11}, binding)
+        self.assertTrue(self.accepted(event))
+        self.assertEqual(jobs[0]["payload"]["implementation_pr"], 11)
+
 
 if __name__ == "__main__":
     unittest.main()

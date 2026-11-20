@@ -231,6 +231,7 @@ class Controller:
                    "binding": task["binding"], "goal": task["goal"], "test_mode": task["test_mode"],
                    "entry_agent_id": task["entry_agent_id"], "return_agent_id": task["entry_agent_id"],
                    "required_checks": task["required_checks"], "required_gates": task["required_gates"],
+                   "implementation_pr": task.get("implementation_pr"),
                    "review_round": task["review_round"], "state": task["state"], **(extra or {})}
         key = ":".join((task["repository"], task["task_id"], kind, str(suffix)))
         cursor = db.execute("INSERT OR IGNORE INTO jobs(task_id,kind,idempotency_key,payload,created_at,updated_at) VALUES(?,?,?,?,?,?)",
@@ -290,7 +291,8 @@ class Controller:
                     "goal": payload["goal"], "binding": binding, "test_mode": payload["test_mode"],
                     "entry_agent_id": payload["entry_agent_id"], "required_checks": payload["required_checks"],
                     "required_gates": payload["required_gates"], "approved": False, "review_round": 1,
-                    "infra_resumes": 0, "next_owner": "Planner", "last_review": None, "blocked_reason": None}
+                    "infra_resumes": 0, "next_owner": "Planner", "last_review": None, "blocked_reason": None,
+                    "implementation_pr": None}
             return task, self._queue(db, task, "plan", event["event_id"])
         if task is None:
             raise Rejected("Unknown task")
@@ -311,7 +313,8 @@ class Controller:
             self._supersede(db, task["task_id"])
             binding.update(head_sha=None, base_sha=None)
             task.update(binding=binding, state="PLAN_REVIEW", approved=False, next_owner="User", last_review=None,
-                        review_round=1, infra_resumes=0, plan_pr=payload.get("plan_pr"), blocked_reason=None)
+                        review_round=1, infra_resumes=0, plan_pr=payload.get("plan_pr"), blocked_reason=None,
+                        implementation_pr=None)
             return task, self._queue(db, task, "report", event["event_id"], {"message": "Plan proposed; explicit user approval required"})
         if kind == "PLAN_APPROVED":
             if task["state"] != "PLAN_REVIEW":
@@ -352,12 +355,19 @@ class Controller:
             self._equal(task, binding)
             if task["state"] in ("ENV_BLOCKED", "NEEDS_HUMAN", "PLAN_REVISION_REQUIRED"):
                 raise Rejected("Resolve the blocked decision before candidate dispatch")
-            if all(task["binding"][f] == binding[f] for f in REVIEW_FIELDS) and task["state"] in ("REVIEWING", "READY_FOR_HUMAN_MERGE"):
+            previous_pr = task.get("implementation_pr")
+            if payload.get("implementation_pr") is not None:
+                if type(payload["implementation_pr"]) is not int or payload["implementation_pr"] < 1:
+                    raise Rejected("implementation_pr must be a positive PR number")
+                task["implementation_pr"] = payload["implementation_pr"]
+            if (all(task["binding"][f] == binding[f] for f in REVIEW_FIELDS)
+                    and previous_pr == task.get("implementation_pr")
+                    and task["state"] in ("REVIEWING", "READY_FOR_HUMAN_MERGE")):
                 return task, []
             self._supersede(db, task["task_id"])
             task.update(binding=binding, state="REVIEWING", next_owner="Reviewer", last_review=None, blocked_reason=None)
-            suffix = ":".join((binding["plan_sha"], binding["head_sha"], binding["base_sha"], str(task["review_round"])))
-            return task, self._queue(db, task, "review", suffix, {"implementation_pr": payload.get("implementation_pr")})
+            suffix = ":".join((binding["plan_sha"], binding["head_sha"], binding["base_sha"], str(task["review_round"]), str(task.get("implementation_pr"))))
+            return task, self._queue(db, task, "review", suffix)
         if kind == "REVIEW_COMPLETED":
             if not task["approved"] or task["state"] != "REVIEWING":
                 raise Rejected("Task is not awaiting an independent review")

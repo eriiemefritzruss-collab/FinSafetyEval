@@ -329,6 +329,60 @@ class RuntimeTests(unittest.TestCase):
             self.rt._contract(job)
         self.paseo.run_agent.assert_not_called()
 
+    def test_once_invalidates_ready_candidate_and_supersedes_old_ready_notification(self):
+        job, info = self.prepare_review()
+        self.rt._finish_review(job, info, self.passed())
+        self.rt.sync()
+        ready = self.rt.core.state(self.task)
+        self.assertEqual(ready["state"], "READY_FOR_HUMAN_MERGE")
+        self.assertEqual(ready["implementation_pr"], 9)
+        old_binding = copy.deepcopy(ready["binding"])
+        pending_reports = [j["id"] for j in self.rt.core.export_snapshot()["jobs"]
+                           if j["kind"] == "report" and j["status"] == "pending"]
+        self.assertTrue(pending_reports)
+        self.git("commit", "--allow-empty", "-m", "remote candidate advanced after PASS")
+        new_head = self.git("rev-parse", "HEAD")
+        self.service.pr["head"]["sha"] = new_head
+        self.service.pr["base"]["sha"] = self.policy
+        self.paseo.run_agent.return_value = {"agent_id": "replacement-reviewer", "receipt": {"agentId": "replacement-reviewer", "status": "running"}}
+        start = len(self.service.events)
+        result = self.rt.once()
+        self.assertIsNone(result["error"])
+        current = self.rt.core.state(self.task)
+        self.assertEqual(current["state"], "REVIEWING")
+        self.assertIsNone(current["last_review"])
+        self.assertEqual(current["binding"]["head_sha"], new_head)
+        self.assertEqual(current["binding"]["base_sha"], self.policy)
+        published = [v["event"] for v in self.service.events[start:]]
+        self.assertTrue(any(e["kind"] == "HEAD_CHANGED" for e in published))
+        self.assertFalse(any(e["kind"] == "ENTRY_NOTIFICATION" and e["binding"] == old_binding
+                             and e["payload"].get("state") == "READY_FOR_HUMAN_MERGE" for e in published))
+        jobs = {j["id"]: j for j in self.rt.core.export_snapshot()["jobs"]}
+        self.assertTrue(all(jobs[job_id]["status"] == "superseded" for job_id in pending_reports))
+        self.paseo.run_agent.assert_called_once()
+
+    def test_malformed_owner_comments_do_not_poison_subsequent_valid_task(self):
+        valid = self.opened()
+        actor_string = copy.deepcopy(valid)
+        actor_string.update(event_id="bad-actor-string", actor="Planner")
+        role_array = copy.deepcopy(valid)
+        role_array["event_id"] = "bad-role-array"
+        role_array["actor"]["role"] = ["Planner"]
+        payload_array = copy.deepcopy(valid)
+        payload_array.update(event_id="bad-payload-array", payload=[])
+        malformed = [actor_string, role_array, payload_array]
+        self.service.events = [{"event": value, "author": "trusted-login", "comment_id": index+1}
+                               for index, value in enumerate([*malformed, valid])]
+        self.rt.sync()
+        self.assertEqual(self.rt.core.state(self.task)["state"], "PLANNING")
+        self.assertTrue(self.rt.core.event_result(valid["event_id"])["accepted"])
+        rejected_ids = {value["event_id"] for value in self.rt.meta["rejections"]}
+        self.assertTrue({value["event_id"] for value in malformed}.issubset(rejected_ids))
+        before = copy.deepcopy(self.rt.meta["rejections"])
+        self.rt.sync()
+        self.assertEqual(self.rt.meta["rejections"], before)
+        self.assertEqual(self.rt.core.state(self.task)["state"], "PLANNING")
+
 
 if __name__ == "__main__":
     unittest.main()

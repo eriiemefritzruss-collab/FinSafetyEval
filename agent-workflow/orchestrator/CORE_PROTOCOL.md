@@ -101,6 +101,11 @@ job 失效，避免 Mac 后续误派一次重复规划。Mac claim 可明确排�
   implement，不增加业务审核轮数。
 - `HEAD_CHANGED`：Implementer/Coordinator；相同计划的新 head/base 会使旧 Review
   失效，并为新绑定排 Review。同版本重复事件不重复派发。
+
+`IMPLEMENTATION_READY` / `HEAD_CHANGED` 可提供正整数 `payload.implementation_pr`。
+核心将它保存为 task 字段，省略或 null 时沿用已知 PR，review 及环境恢复 jobs 均携带
+该字段。新计划提案会清空旧实现 PR；PR 本身改变或后补时不复用绑定旧 PR 的排队审核。
+未知 PR 仍为 null，transport 必须拒绝在缺少当前 PR 事实时沿用旧通过。
 - `REVIEW_COMPLETED`：Reviewer；必须精确匹配当前计划/head/base/policy，有 HTTPS
   共享报告地址 `payload.report_url` 或 `proof.url`。
 - `ENV_RESUMED`：User/Coordinator；仅恢复 ENV_BLOCKED。基础设施恢复不增加

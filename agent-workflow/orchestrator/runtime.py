@@ -15,10 +15,10 @@ import time
 
 try:
     from .adapters import AdapterError, GitHubClient, PaseoClient, system_proxies
-    from .core import Controller, InvalidEvent, EventConflict, now
+    from .core import BINDINGS, Controller, InvalidEvent, EventConflict, now
 except ImportError:
     from adapters import AdapterError, GitHubClient, PaseoClient, system_proxies
-    from core import Controller, InvalidEvent, EventConflict, now
+    from core import BINDINGS, Controller, InvalidEvent, EventConflict, now
 
 
 TASK_MARKER = "<!-- finsafety-orchestration-task:v1 -->"
@@ -90,12 +90,15 @@ class Runtime:
         return p.stdout.strip()
 
     def _publish(self, issue, kind, task, payload, role="Coordinator", binding=None):
+        return self.github.post_event(issue, self._event(issue, kind, task, payload, role, binding))
+
+    def _event(self, issue, kind, task, payload, role="Coordinator", binding=None):
         binding = binding or task["binding"]
         event = {"schema_version": 1, "event_id": stable_id(kind, [task["task_id"], binding, payload]),
                  "task_id": task["task_id"], "repository": self.config["repository"], "kind": kind,
                  "actor": {"id": self.login, "role": role}, "binding": binding,
                  "payload": payload, "proof": {"source": "single-mac-controller", "url": f"https://github.com/{self.config['repository']}/issues/{issue}"}}
-        return self.github.post_event(issue, event)
+        return event
 
     def _stage_publish(self, job, info, kind, payload, role, binding, result):
         info.update(phase="publishing_event", pending_event={"kind": kind, "payload": payload, "role": role, "binding": binding}, completion_result=result)
@@ -174,10 +177,21 @@ class Runtime:
                 event = envelope["event"]
                 if event.get("repository") != self.config["repository"]:
                     continue
-                if envelope.get("author") != self.login or event.get("actor", {}).get("id") != envelope.get("author"):
+                if envelope.get("author") != self.login:
+                    continue
+                actor, payload = event.get("actor"), event.get("payload")
+                if not isinstance(actor, dict) or not isinstance(payload, dict) or not isinstance(event.get("task_id"), str) or not isinstance(event.get("event_id"), str):
+                    rejection = {"event_id": str(event.get("event_id", "malformed")), "reason": "Malformed authenticated protocol envelope"}
+                    if rejection not in self.meta["rejections"]:
+                        self.meta["rejections"].append(rejection)
+                    continue
+                if actor.get("id") != envelope.get("author"):
                     continue
                 kind, task_id = event.get("kind"), event.get("task_id")
                 if kind in ("ENTRY_NOTIFICATION", "ENTRY_ACK"):
+                    expected_role = "Coordinator" if kind == "ENTRY_NOTIFICATION" else "Planner"
+                    if actor.get("role") != expected_role or not isinstance(event.get("binding"), dict) or set(event["binding"]) != set(BINDINGS) or payload.get("entry_agent_id") != self.config["entry_agent_id"]:
+                        continue
                     key = "notifications" if kind == "ENTRY_NOTIFICATION" else "acks"
                     if not any(v["event"]["event_id"] == event["event_id"] for v in self.meta[key]):
                         self.meta[key].append(envelope)
@@ -187,6 +201,7 @@ class Runtime:
                 if self.core.event_result(event.get("event_id")):
                     continue
                 try:
+                    self.core._validate(event)
                     if kind == "PLAN_APPROVED":
                         self._verify_approval(event, self.core.state(task_id))
                     self.core.ingest(event)
@@ -197,11 +212,52 @@ class Runtime:
                             self.meta["proposals"][task_id] = event
                     else:
                         self.meta["rejections"].append({"event_id": event["event_id"], "reason": accepted["reason"]})
-                except (InvalidEvent, EventConflict, RuntimeErrorSafe) as exc:
+                except (InvalidEvent, EventConflict, RuntimeErrorSafe, TypeError, ValueError) as exc:
                     rejection = {"event_id": event.get("event_id"), "reason": str(exc)}
                     if rejection not in self.meta["rejections"]:
                         self.meta["rejections"].append(rejection)
         self.meta.update(last_poll=now(), error=None)
+        self.save()
+
+    def refresh_candidates(self):
+        """Invalidate a PASS on newly observed GitHub facts, including after ACK.
+
+        The authenticated GET is the local observation authority. Its event is
+        durably saved before local invalidation; publishing is a separate outbox.
+        A missing write receipt never keeps an already-known stale PASS valid.
+        """
+        outbox = self.meta.setdefault("candidate_observations", {})
+        for task in self.core.export_snapshot()["tasks"]:
+            if task["state"] not in ("REVIEWING", "READY_FOR_HUMAN_MERGE"):
+                continue
+            number = task.get("implementation_pr")
+            if type(number) is not int:
+                raise RuntimeErrorSafe("Active candidate lacks implementation PR identity; reconcile before review")
+            pr = self.github.get_pr(number)
+            binding = dict(task["binding"], head_sha=pr["head"]["sha"], base_sha=pr["base"]["sha"])
+            if binding == task["binding"]:
+                continue
+            self.git("fetch", "origin", "--prune", network=True)
+            issue = self.meta["task_issues"][task["task_id"]]
+            event = self._event(issue, "HEAD_CHANGED", task,
+                                {"implementation_pr": number, "reason": "Authenticated GitHub observation supersedes previous candidate"},
+                                binding=binding)
+            outbox.setdefault(event["event_id"], {"issue": issue, "event": event, "published": False, "observed_at": now()})
+            self.save()
+            self.core.ingest(event)
+        for record in outbox.values():
+            if record["published"]:
+                continue
+            try:
+                if record.get("uncertain"):
+                    found = [v for v in self.github.list_events(record["issue"]) if v.get("author") == self.login and v["event"].get("event_id") == record["event"]["event_id"]]
+                    if not found:
+                        continue
+                else:
+                    self.github.post_event(record["issue"], record["event"])
+                record["published"] = True
+            except AdapterError as exc:
+                record.update(uncertain=exc.uncertain, error=exc.code)
         self.save()
 
     def _contract(self, job):
@@ -316,6 +372,8 @@ class Runtime:
         if self.git("rev-parse", "HEAD", cwd=info["worktree"]) != job["payload"]["binding"]["head_sha"] or self.git("status", "--porcelain=v1", cwd=info["worktree"]):
             raise RuntimeErrorSafe("Reviewer source changed or is at another head")
         pr_number = job["payload"].get("implementation_pr")
+        if type(pr_number) is not int:
+            raise RuntimeErrorSafe("Review cannot proceed without an implementation PR")
         if pr_number:
             pr = self.github.get_pr(pr_number)
             current_binding = dict(job["payload"]["binding"], head_sha=pr["head"]["sha"], base_sha=pr["base"]["sha"])
@@ -440,6 +498,7 @@ class Runtime:
     def once(self):
         try:
             self.sync()
+            self.refresh_candidates()
             self.collect()
             job = self.core.claim(self.worker_id, kinds=["report"])
             if job:
