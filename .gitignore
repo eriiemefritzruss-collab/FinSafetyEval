@@ -1,0 +1,10 @@
+# Local credentials and generated Python files
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.venv/
+.DS_Store
+# Local workflow evidence belongs outside the candidate checkout.
+agent-workflow/local/
