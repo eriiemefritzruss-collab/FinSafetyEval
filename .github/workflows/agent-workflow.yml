@@ -1,0 +1,29 @@
+name: Agent workflow offline checks
+
+on:
+  pull_request:
+  push:
+    branches: [main, 'chore/paseo-workflow-pilot']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-tests:
+    name: workflow-tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Run offline workflow contracts
+        run: python -m unittest discover -s agent-workflow/tests -v
