@@ -360,8 +360,10 @@ class Runtime:
         prs = self.github.request("GET", "pulls?state=open&head=" + self.config["repository"].split("/")[0] + ":" + info["branch"])
         pr = next(iter(prs), None)
         if pr is None:
+            target_branch = (self.config.get("test_base_branch", self.config["implementation_base_branch"])
+                             if job["payload"]["test_mode"] else self.config["implementation_base_branch"])
             pr = self.github.request("POST", "pulls", {"title": job["task_id"] + "：隔离协作试验" if job["payload"]["test_mode"] else job["task_id"] + "：实现",
-                        "head": info["branch"], "base": self.config["implementation_base_branch"], "draft": False,
+                        "head": info["branch"], "base": target_branch, "draft": False,
                         "body": f"关联 #{info['issue']}。由协调器自动派发的独立Mac实施会话提交。计划提交 `{job['payload']['binding']['plan_sha']}`；候选 `{head}`。本任务不自动merge。\n\n" + result.get("summary", "")})
         binding = dict(job["payload"]["binding"], head_sha=head, base_sha=pr["base"]["sha"])
         info.update(pr_number=pr["number"], candidate_sha=head)
